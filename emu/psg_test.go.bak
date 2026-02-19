@@ -1,0 +1,405 @@
+package emu
+
+import (
+	"testing"
+
+	"github.com/user-none/go-chip-m68k"
+)
+
+func TestPSG_VolumeTable(t *testing.T) {
+	if psgVolumeTable[0] != 2048 {
+		t.Errorf("expected volume[0]=2048, got %d", psgVolumeTable[0])
+	}
+	if psgVolumeTable[15] != 0 {
+		t.Errorf("expected volume[15]=0, got %d", psgVolumeTable[15])
+	}
+	// Monotonically decreasing
+	for i := 1; i < 15; i++ {
+		if psgVolumeTable[i] >= psgVolumeTable[i-1] {
+			t.Errorf("volume table not decreasing at index %d: %d >= %d",
+				i, psgVolumeTable[i], psgVolumeTable[i-1])
+		}
+	}
+}
+
+func TestPSG_Write_LatchTone(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Latch channel 0, tone, low bits = 0x0A
+	// 1 00 0 1010 = 0x8A
+	p.Write(0x8A)
+	if p.toneRegs[0] != 0x0A {
+		t.Errorf("expected toneRegs[0]=0x0A, got 0x%03X", p.toneRegs[0])
+	}
+
+	// Latch channel 1, tone, low bits = 0x05
+	// 1 01 0 0101 = 0xA5
+	p.Write(0xA5)
+	if p.toneRegs[1] != 0x05 {
+		t.Errorf("expected toneRegs[1]=0x05, got 0x%03X", p.toneRegs[1])
+	}
+
+	// Latch channel 2, tone, low bits = 0x0F
+	// 1 10 0 1111 = 0xCF
+	p.Write(0xCF)
+	if p.toneRegs[2] != 0x0F {
+		t.Errorf("expected toneRegs[2]=0x0F, got 0x%03X", p.toneRegs[2])
+	}
+}
+
+func TestPSG_Write_LatchVolume(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Latch channel 0, volume, value = 5
+	// 1 00 1 0101 = 0x95
+	p.Write(0x95)
+	if p.volume[0] != 5 {
+		t.Errorf("expected volume[0]=5, got %d", p.volume[0])
+	}
+
+	// Latch channel 3, volume, value = 0 (full volume)
+	// 1 11 1 0000 = 0xF0
+	p.Write(0xF0)
+	if p.volume[3] != 0 {
+		t.Errorf("expected volume[3]=0, got %d", p.volume[3])
+	}
+}
+
+func TestPSG_Write_LatchNoise(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Scramble LFSR first
+	p.noiseLFSR = 0x1234
+	// Latch channel 3, tone/noise, value = 0x05 (white noise, rate 1)
+	// 1 11 0 0101 = 0xE5
+	p.Write(0xE5)
+	if p.noiseReg != 0x05 {
+		t.Errorf("expected noiseReg=0x05, got 0x%02X", p.noiseReg)
+	}
+	if p.noiseLFSR != 0x8000 {
+		t.Errorf("expected LFSR reset to 0x8000, got 0x%04X", p.noiseLFSR)
+	}
+}
+
+func TestPSG_Write_DataToneUpperBits(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Latch channel 0, tone, low bits = 0x0A
+	p.Write(0x8A) // toneRegs[0] = 0x00A
+	// Data byte: upper 6 bits = 0x15 = 010101
+	// 0 0 010101 = 0x15
+	p.Write(0x15) // toneRegs[0] = (0x15 << 4) | 0x0A = 0x15A
+	if p.toneRegs[0] != 0x15A {
+		t.Errorf("expected toneRegs[0]=0x15A, got 0x%03X", p.toneRegs[0])
+	}
+}
+
+func TestPSG_Write_DataVolume(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Latch channel 1, volume
+	// 1 01 1 1111 = 0xBF
+	p.Write(0xBF) // volume[1] = 15
+	// Data byte: value = 3
+	// 0 0 000011 = 0x03
+	p.Write(0x03)
+	if p.volume[1] != 3 {
+		t.Errorf("expected volume[1]=3, got %d", p.volume[1])
+	}
+}
+
+func TestPSG_Write_DataNoiseResetsLFSR(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Latch noise channel
+	p.Write(0xE0)
+	// Scramble LFSR
+	p.noiseLFSR = 0x1234
+	// Data byte to noise: should reset LFSR
+	p.Write(0x03)
+	if p.noiseLFSR != 0x8000 {
+		t.Errorf("expected LFSR reset to 0x8000, got 0x%04X", p.noiseLFSR)
+	}
+	if p.noiseReg != 0x03 {
+		t.Errorf("expected noiseReg=0x03, got 0x%02X", p.noiseReg)
+	}
+}
+
+func TestPSG_ToneCounter_Toggle(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Set tone 0 frequency to 2
+	p.toneRegs[0] = 2
+	p.toneCounters[0] = 1 // will hit 0 on next tick
+	p.toneOutputs[0] = 1
+
+	p.tickChannels()
+	// Counter hit 0, reloaded to 2, output toggled to -1
+	if p.toneOutputs[0] != -1 {
+		t.Errorf("expected output -1 after toggle, got %d", p.toneOutputs[0])
+	}
+	if p.toneCounters[0] != 2 {
+		t.Errorf("expected counter reload to 2, got %d", p.toneCounters[0])
+	}
+
+	// Tick again: counter goes from 2 to 1
+	p.tickChannels()
+	if p.toneOutputs[0] != -1 {
+		t.Errorf("expected output still -1, got %d", p.toneOutputs[0])
+	}
+
+	// Tick again: counter 1→0, toggle
+	p.tickChannels()
+	if p.toneOutputs[0] != 1 {
+		t.Errorf("expected output toggled back to 1, got %d", p.toneOutputs[0])
+	}
+}
+
+func TestPSG_ToneCounter_FreqZeroStaysHigh(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.toneRegs[0] = 0
+	p.toneOutputs[0] = -1 // force low to verify it gets set high
+
+	p.tickChannels()
+	if p.toneOutputs[0] != 1 {
+		t.Errorf("freq 0 should stay high, got %d", p.toneOutputs[0])
+	}
+}
+
+func TestPSG_ToneCounter_FreqOneStaysHigh(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.toneRegs[0] = 1
+	p.toneOutputs[0] = -1
+
+	p.tickChannels()
+	if p.toneOutputs[0] != 1 {
+		t.Errorf("freq 1 should stay high, got %d", p.toneOutputs[0])
+	}
+}
+
+func TestPSG_Noise_PeriodicLFSR(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.noiseReg = 0x00 // periodic, rate 0
+	p.noiseLFSR = 0x8000
+	p.noiseCounter = 0
+
+	// Periodic: feedback = bit 0 only. LFSR shifts right, bit0 goes to bit15.
+	// Initial: 0x8000 = 1000_0000_0000_0000
+	// bit0 = 0, feedback = 0
+	// After: (0x8000 >> 1) | (0 << 15) = 0x4000
+	p.tickChannels()
+	if p.noiseLFSR != 0x4000 {
+		t.Errorf("expected LFSR=0x4000, got 0x%04X", p.noiseLFSR)
+	}
+
+	// 0x4000: bit0 = 0, feedback = 0 → 0x2000
+	p.noiseCounter = 0
+	p.tickChannels()
+	if p.noiseLFSR != 0x2000 {
+		t.Errorf("expected LFSR=0x2000, got 0x%04X", p.noiseLFSR)
+	}
+}
+
+func TestPSG_Noise_WhiteLFSR(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.noiseReg = 0x04 // white noise, rate 0
+	p.noiseLFSR = 0x0009
+	p.noiseCounter = 0
+
+	// 0x0009 = ...0000_1001
+	// bit0 = 1, bit3 = 1, XOR = 0
+	// After: (0x0009 >> 1) | (0 << 15) = 0x0004
+	p.tickChannels()
+	if p.noiseLFSR != 0x0004 {
+		t.Errorf("expected LFSR=0x0004, got 0x%04X", p.noiseLFSR)
+	}
+
+	// 0x0004 = ...0000_0100
+	// bit0 = 0, bit3 = 0, XOR = 0
+	// After: (0x0004 >> 1) | (0 << 15) = 0x0002
+	p.noiseCounter = 0
+	p.tickChannels()
+	if p.noiseLFSR != 0x0002 {
+		t.Errorf("expected LFSR=0x0002, got 0x%04X", p.noiseLFSR)
+	}
+
+	// Test with bit0=1, bit3=0 → feedback=1
+	p.noiseLFSR = 0x0001 // bit0=1, bit3=0, XOR=1
+	p.noiseCounter = 0
+	p.tickChannels()
+	// (0x0001 >> 1) | (1 << 15) = 0x8000
+	if p.noiseLFSR != 0x8000 {
+		t.Errorf("expected LFSR=0x8000, got 0x%04X", p.noiseLFSR)
+	}
+}
+
+func TestPSG_Noise_ShiftRates(t *testing.T) {
+	tests := []struct {
+		rate   byte
+		expect uint16
+	}{
+		{0, 0x10},
+		{1, 0x20},
+		{2, 0x40},
+	}
+	for _, tt := range tests {
+		p := NewPSG(3579545, 48000)
+		p.noiseReg = tt.rate
+		p.noiseCounter = 0
+		p.tickChannels()
+		// After tick with counter=0, it reloads
+		if p.noiseCounter != tt.expect {
+			t.Errorf("rate %d: expected counter reload=%d, got %d",
+				tt.rate, tt.expect, p.noiseCounter)
+		}
+	}
+}
+
+func TestPSG_Noise_ShiftRate3UsesTone2(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.noiseReg = 0x03 // rate 3
+	p.toneRegs[2] = 0x100
+	p.noiseCounter = 0
+	p.tickChannels()
+	if p.noiseCounter != 0x100 {
+		t.Errorf("rate 3 should use tone ch2 freq (0x100), got 0x%04X", p.noiseCounter)
+	}
+}
+
+func TestPSG_Noise_WriteResetsLFSR(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.noiseLFSR = 0x1234
+
+	// Latch noise register (channel 3, type 0)
+	// 1 11 0 0010 = 0xE2
+	p.Write(0xE2)
+	if p.noiseLFSR != 0x8000 {
+		t.Errorf("expected LFSR reset to 0x8000 on write, got 0x%04X", p.noiseLFSR)
+	}
+}
+
+func TestPSG_Mix_AllSilent(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// All volumes default to 15 (off)
+	sample := p.mixChannels()
+	if sample != 0 {
+		t.Errorf("expected 0 when all silent, got %d", sample)
+	}
+}
+
+func TestPSG_Mix_SingleChannelHigh(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.volume[0] = 0 // full volume
+	p.toneOutputs[0] = 1
+	sample := p.mixChannels()
+	if sample != 2048 {
+		t.Errorf("expected 2048, got %d", sample)
+	}
+}
+
+func TestPSG_Mix_SingleChannelLow(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.volume[0] = 0 // full volume
+	p.toneOutputs[0] = -1
+	sample := p.mixChannels()
+	if sample != -2048 {
+		t.Errorf("expected -2048, got %d", sample)
+	}
+}
+
+func TestPSG_Mix_AllChannelsFull(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	for i := 0; i < 3; i++ {
+		p.volume[i] = 0
+		p.toneOutputs[i] = 1
+	}
+	p.volume[3] = 0
+	p.noiseOutput = 1
+	sample := p.mixChannels()
+	if sample != 2048*4 {
+		t.Errorf("expected %d, got %d", 2048*4, sample)
+	}
+}
+
+func TestPSG_Mix_BipolarSymmetry(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.volume[0] = 0
+	p.toneOutputs[0] = 1
+	high := p.mixChannels()
+
+	p.toneOutputs[0] = -1
+	low := p.mixChannels()
+
+	if high != -low {
+		t.Errorf("expected symmetric output: high=%d, low=%d", high, low)
+	}
+}
+
+func TestPSG_GenerateSamples_ProducesStereo(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.GenerateSamples(228) // ~1 scanline of Z80 cycles
+	buf := p.GetBuffer()
+	if len(buf)%2 != 0 {
+		t.Errorf("expected even buffer length (stereo pairs), got %d", len(buf))
+	}
+	// Expect roughly (228/16) * (48000/223721) ≈ 3 samples → 6 int16s
+	// Allow some range due to Bresenham accumulation
+	if len(buf) < 2 || len(buf) > 20 {
+		t.Errorf("unexpected buffer length for 228 Z80 cycles: %d", len(buf))
+	}
+}
+
+func TestPSG_GenerateSamples_SilenceWhenOff(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// All volumes default to 15 (silent)
+	p.GenerateSamples(228)
+	buf := p.GetBuffer()
+	for i, s := range buf {
+		if s != 0 {
+			t.Errorf("expected silence, got %d at index %d", s, i)
+			break
+		}
+	}
+}
+
+func TestPSG_GenerateSamples_NonZeroWithTone(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	// Set up channel 0: frequency=100, full volume
+	p.toneRegs[0] = 100
+	p.volume[0] = 0
+
+	// Generate enough cycles to produce samples
+	p.GenerateSamples(3580) // ~1ms worth
+	buf := p.GetBuffer()
+
+	hasNonZero := false
+	for _, s := range buf {
+		if s != 0 {
+			hasNonZero = true
+			break
+		}
+	}
+	if !hasNonZero {
+		t.Error("expected non-zero samples with active tone")
+	}
+}
+
+func TestPSG_GetBuffer_ReturnsAndClears(t *testing.T) {
+	p := NewPSG(3579545, 48000)
+	p.GenerateSamples(228)
+	buf1 := p.GetBuffer()
+	if len(buf1) == 0 {
+		t.Fatal("expected non-empty buffer")
+	}
+
+	// Second call should return empty
+	buf2 := p.GetBuffer()
+	if len(buf2) != 0 {
+		t.Errorf("expected empty buffer after clear, got %d samples", len(buf2))
+	}
+}
+
+func TestPSG_BusWrite(t *testing.T) {
+	bus := makeTestBus()
+	psg := bus.psg
+
+	// Write to PSG port 0xC00011 via the bus
+	// Latch channel 0, volume = 5: 1 00 1 0101 = 0x95
+	bus.WriteCycle(0, m68k.Byte, 0xC00011, 0x95)
+	if psg.volume[0] != 5 {
+		t.Errorf("expected PSG volume[0]=5 after bus write, got %d", psg.volume[0])
+	}
+}
