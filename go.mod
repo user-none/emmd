@@ -6,9 +6,9 @@ require (
 	github.com/user-none/eblitui/api v0.1.0
 	github.com/user-none/eblitui/libretro v0.1.0
 	github.com/user-none/eblitui/standalone v0.1.0
-	github.com/user-none/go-chip-m68k v0.0.0-20260214191634-78aa8ec62502
-	github.com/user-none/go-chip-sn76489 v0.0.0-20260215161003-b694df9feb68
-	github.com/user-none/go-chip-z80 v0.0.0-20260214182008-08702559ea24
+	github.com/user-none/go-chip-m68k v0.0.0-20260217123337-55dbcedff26a
+	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
+	github.com/user-none/go-chip-z80 v0.0.0-20260217121811-e750030ddfd5
 )
 
 require (
@@ -17,6 +17,7 @@ require (
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/sevenzip v1.6.1 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/ebitengine/gomobile v0.0.0-20260211053922-3d992dae95d1 // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/oto/v3 v3.4.0 // indirect
@@ -30,9 +31,11 @@ require (
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/nwaples/rardecode/v2 v2.2.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/user-none/eblitui/rdb v0.1.0 // indirect
 	github.com/user-none/eblitui/romloader v0.1.0 // indirect
