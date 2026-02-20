@@ -1,23 +1,14 @@
 package emu
 
-// Region represents the console region (NTSC or PAL)
-type Region int
+import emucore "github.com/user-none/eblitui/api"
+
+// Region is an alias for emucore.Region so internal code compiles unchanged.
+type Region = emucore.Region
 
 const (
-	RegionNTSC Region = iota
-	RegionPAL
+	RegionNTSC = emucore.RegionNTSC
+	RegionPAL  = emucore.RegionPAL
 )
-
-func (r Region) String() string {
-	switch r {
-	case RegionNTSC:
-		return "NTSC"
-	case RegionPAL:
-		return "PAL"
-	default:
-		return "Unknown"
-	}
-}
 
 // RegionTiming holds timing constants for a specific region.
 // The Genesis has two CPUs with different clock rates.

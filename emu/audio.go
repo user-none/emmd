@@ -16,7 +16,7 @@ var lpfAlpha = 1.0 / (float64(sampleRate)/(2*math.Pi*lpfCutoffHz) + 1)
 // mixAudio collects YM2612 and PSG output buffers and mixes them into
 // the emulator's stereo audio buffer. YM2612 produces stereo L/R pairs,
 // PSG produces mono samples that are duplicated to both channels.
-func (e *EmulatorBase) mixAudio() {
+func (e *Emulator) mixAudio() {
 	ym2612Samples := e.ym2612.GetBuffer()
 	psgBuf, psgCount := e.psg.GetBuffer()
 
@@ -53,7 +53,7 @@ func (e *EmulatorBase) mixAudio() {
 // buffer. This emulates the Model 1 VA3 motherboard filter (fc ~= 2840 Hz,
 // 20 dB/decade rolloff). Applied per stereo channel with state persisting
 // across frames.
-func (e *EmulatorBase) applyLowPass() {
+func (e *Emulator) applyLowPass() {
 	for i := 0; i < len(e.audioBuffer); i += 2 {
 		inL := float64(e.audioBuffer[i])
 		inR := float64(e.audioBuffer[i+1])
@@ -65,7 +65,7 @@ func (e *EmulatorBase) applyLowPass() {
 }
 
 // GetAudioSamples returns accumulated audio samples as 16-bit stereo PCM.
-func (e *EmulatorBase) GetAudioSamples() []int16 {
+func (e *Emulator) GetAudioSamples() []int16 {
 	return e.audioBuffer
 }
 

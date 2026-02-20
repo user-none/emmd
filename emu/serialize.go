@@ -20,9 +20,10 @@ const (
 
 // Fixed serialization sizes for inline components
 const (
-	busSerializeFixedSize     = mainRAMSize + z80RAMSize + 4 + 5 // ram + z80RAM + sramLen + flags
-	z80MemSerializeSize       = 2                                // bankRegister
-	emulatorBaseSerializeSize = 17                               // z80IntPending(1) + filterPrevL(8) + filterPrevR(8)
+	maxSRAMSize           = 0x8000                           // 32KB max SRAM per Sega specs
+	busSerializeFixedSize = mainRAMSize + z80RAMSize + 4 + 5 // ram + z80RAM + sramLen + flags
+	z80MemSerializeSize   = 2                                // bankRegister
+	emulatorSerializeSize = 17                               // z80IntPending(1) + filterPrevL(8) + filterPrevR(8)
 )
 
 // boolByte converts a bool to a uint8 (0 or 1).
@@ -34,24 +35,22 @@ func boolByte(b bool) uint8 {
 }
 
 // SerializeSize returns the total size in bytes needed for a save state.
-// SRAM length is variable per ROM, so this is a method on EmulatorBase.
-func (e *EmulatorBase) SerializeSize() int {
-	sramLen := len(e.bus.sram)
+func SerializeSize() int {
 	return stateHeaderSize +
 		m68k.SerializeSize +
 		z80.SerializeSize +
-		busSerializeFixedSize + sramLen +
+		busSerializeFixedSize + maxSRAMSize +
 		z80MemSerializeSize +
 		VDPSerializeSize +
 		YM2612SerializeSize +
 		sn76489.SerializeSize +
 		IOSerializeSize +
-		emulatorBaseSerializeSize
+		emulatorSerializeSize
 }
 
 // Serialize creates a save state and returns it as a byte slice.
-func (e *EmulatorBase) Serialize() ([]byte, error) {
-	size := e.SerializeSize()
+func (e *Emulator) Serialize() ([]byte, error) {
+	size := SerializeSize()
 	data := make([]byte, size)
 
 	// Write header
@@ -103,7 +102,7 @@ func (e *EmulatorBase) Serialize() ([]byte, error) {
 	}
 	offset += IOSerializeSize
 
-	// EmulatorBase inline state
+	// Emulator inline state
 	e.serializeBase(data, offset)
 
 	// Calculate and write data CRC32 (over everything after header)
@@ -115,7 +114,7 @@ func (e *EmulatorBase) Serialize() ([]byte, error) {
 
 // Deserialize restores emulator state from a save state byte slice.
 // Region is NOT restored - the current region setting is preserved.
-func (e *EmulatorBase) Deserialize(data []byte) error {
+func (e *Emulator) Deserialize(data []byte) error {
 	if err := e.VerifyState(data); err != nil {
 		return err
 	}
@@ -164,15 +163,15 @@ func (e *EmulatorBase) Deserialize(data []byte) error {
 	}
 	offset += IOSerializeSize
 
-	// EmulatorBase inline state
+	// Emulator inline state
 	e.deserializeBase(data, offset)
 
 	return nil
 }
 
 // VerifyState checks if a save state is valid without loading it.
-func (e *EmulatorBase) VerifyState(data []byte) error {
-	expectedSize := e.SerializeSize()
+func (e *Emulator) VerifyState(data []byte) error {
+	expectedSize := SerializeSize()
 	if len(data) < expectedSize {
 		return errors.New("save state too short")
 	}
@@ -201,7 +200,7 @@ func (e *EmulatorBase) VerifyState(data []byte) error {
 }
 
 // serializeBus writes GenesisBus state to the data buffer.
-func (e *EmulatorBase) serializeBus(data []byte, offset int) int {
+func (e *Emulator) serializeBus(data []byte, offset int) int {
 	// Main RAM (64KB)
 	copy(data[offset:], e.bus.ram[:])
 	offset += mainRAMSize
@@ -235,7 +234,7 @@ func (e *EmulatorBase) serializeBus(data []byte, offset int) int {
 }
 
 // deserializeBus reads GenesisBus state from the data buffer.
-func (e *EmulatorBase) deserializeBus(data []byte, offset int) int {
+func (e *Emulator) deserializeBus(data []byte, offset int) int {
 	// Main RAM (64KB)
 	copy(e.bus.ram[:], data[offset:offset+mainRAMSize])
 	offset += mainRAMSize
@@ -268,21 +267,21 @@ func (e *EmulatorBase) deserializeBus(data []byte, offset int) int {
 }
 
 // serializeZ80Mem writes Z80Memory state to the data buffer.
-func (e *EmulatorBase) serializeZ80Mem(data []byte, offset int) int {
+func (e *Emulator) serializeZ80Mem(data []byte, offset int) int {
 	binary.LittleEndian.PutUint16(data[offset:], e.z80Mem.bankRegister)
 	offset += 2
 	return offset
 }
 
 // deserializeZ80Mem reads Z80Memory state from the data buffer.
-func (e *EmulatorBase) deserializeZ80Mem(data []byte, offset int) int {
+func (e *Emulator) deserializeZ80Mem(data []byte, offset int) int {
 	e.z80Mem.bankRegister = binary.LittleEndian.Uint16(data[offset:])
 	offset += 2
 	return offset
 }
 
-// serializeBase writes EmulatorBase inline state to the data buffer.
-func (e *EmulatorBase) serializeBase(data []byte, offset int) int {
+// serializeBase writes Emulator inline state to the data buffer.
+func (e *Emulator) serializeBase(data []byte, offset int) int {
 	data[offset] = boolByte(e.z80IntPending)
 	offset++
 
@@ -295,8 +294,8 @@ func (e *EmulatorBase) serializeBase(data []byte, offset int) int {
 	return offset
 }
 
-// deserializeBase reads EmulatorBase inline state from the data buffer.
-func (e *EmulatorBase) deserializeBase(data []byte, offset int) int {
+// deserializeBase reads Emulator inline state from the data buffer.
+func (e *Emulator) deserializeBase(data []byte, offset int) int {
 	e.z80IntPending = data[offset] != 0
 	offset++
 

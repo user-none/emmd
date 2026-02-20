@@ -1,0 +1,36 @@
+# Software Information
+display_name = "Sega - Mega Drive / Genesis (emmd)"
+authors = "emmd contributors"
+supported_extensions = "md|bin|gen"
+corename = "emmd"
+license = "GPLv3"
+permissions = ""
+display_version = "0.8.0"
+categories = "Emulator"
+
+# Hardware Information
+manufacturer = "Sega"
+systemname = "Mega Drive / Genesis"
+systemid = "mega_drive"
+
+# Libretro Features
+database = "Sega - Mega Drive - Genesis"
+supports_no_game = "false"
+savestate = "true"
+savestate_features = "serialized"
+cheats = "false"
+input_descriptors = "true"
+memory_descriptors = "true"
+libretro_saves = "true"
+core_options = "true"
+core_options_version = "1.0"
+load_subsystem = "false"
+hw_render = "false"
+needs_fullpath = "false"
+disk_control = "false"
+is_experimental = "true"
+
+# Firmware
+firmware_count = 0
+
+description = "A Sega Mega Drive / Genesis emulator written in Go. Features M68K and Z80 CPU emulation, VDP rendering, YM2612 FM synthesis, PSG audio, and support for 3 and 6 button controllers."

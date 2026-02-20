@@ -8,10 +8,10 @@ import (
 	"github.com/user-none/go-chip-m68k"
 )
 
-// createTestEmulatorBase creates an EmulatorBase with a minimal valid Genesis
+// createTestEmulator creates an Emulator with a minimal valid Genesis
 // ROM for testing serialization. The ROM contains a valid vector table (SSP
 // at address 0, PC at address 4) and a NOP at the entry point.
-func createTestEmulatorBase() *EmulatorBase {
+func createTestEmulator() *Emulator {
 	rom := make([]byte, 1024)
 	// SSP = 0x00FF0000 (big-endian at address 0)
 	rom[0] = 0x00
@@ -30,18 +30,16 @@ func createTestEmulatorBase() *EmulatorBase {
 	rom[0x202] = 0x4E
 	rom[0x203] = 0x71
 
-	base, err := InitEmulatorBase(rom, RegionNTSC)
+	base, err := NewEmulator(rom, RegionNTSC)
 	if err != nil {
-		panic("createTestEmulatorBase: " + err.Error())
+		panic("createTestEmulator: " + err.Error())
 	}
 	return &base
 }
 
 func TestSerializeSize(t *testing.T) {
-	base := createTestEmulatorBase()
-
-	size1 := base.SerializeSize()
-	size2 := base.SerializeSize()
+	size1 := SerializeSize()
+	size2 := SerializeSize()
 
 	if size1 != size2 {
 		t.Errorf("SerializeSize not consistent: %d vs %d", size1, size2)
@@ -53,7 +51,7 @@ func TestSerializeSize(t *testing.T) {
 }
 
 func TestSerializeDeserializeRoundTrip(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	// Run a few M68K steps to change CPU state
 	for i := 0; i < 10; i++ {
@@ -101,7 +99,7 @@ func TestSerializeDeserializeRoundTrip(t *testing.T) {
 }
 
 func TestVerifyState_ValidState(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -115,7 +113,7 @@ func TestVerifyState_ValidState(t *testing.T) {
 }
 
 func TestVerifyState_InvalidMagic(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -132,7 +130,7 @@ func TestVerifyState_InvalidMagic(t *testing.T) {
 }
 
 func TestVerifyState_UnsupportedVersion(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -149,7 +147,7 @@ func TestVerifyState_UnsupportedVersion(t *testing.T) {
 }
 
 func TestVerifyState_CorruptData(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {
@@ -168,7 +166,7 @@ func TestVerifyState_CorruptData(t *testing.T) {
 }
 
 func TestVerifyState_WrongROM(t *testing.T) {
-	base1 := createTestEmulatorBase()
+	base1 := createTestEmulator()
 
 	state, err := base1.Serialize()
 	if err != nil {
@@ -192,9 +190,9 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	differentROM[0x200] = 0x4E
 	differentROM[0x201] = 0x71
 
-	init2, err := InitEmulatorBase(differentROM, RegionNTSC)
+	init2, err := NewEmulator(differentROM, RegionNTSC)
 	if err != nil {
-		t.Fatalf("InitEmulatorBase failed: %v", err)
+		t.Fatalf("NewEmulator failed: %v", err)
 	}
 	base2 := &init2
 
@@ -205,7 +203,7 @@ func TestVerifyState_WrongROM(t *testing.T) {
 }
 
 func TestVerifyState_TooShort(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	// Create data smaller than header
 	state := make([]byte, stateHeaderSize-1)
@@ -231,9 +229,9 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 	rom[0x201] = 0x71
 
 	// Create NTSC emulator and serialize
-	ntscInit, err := InitEmulatorBase(rom, RegionNTSC)
+	ntscInit, err := NewEmulator(rom, RegionNTSC)
 	if err != nil {
-		t.Fatalf("InitEmulatorBase NTSC failed: %v", err)
+		t.Fatalf("NewEmulator NTSC failed: %v", err)
 	}
 	baseNTSC := &ntscInit
 
@@ -243,9 +241,9 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 	}
 
 	// Create PAL emulator with same ROM
-	palInit, err := InitEmulatorBase(rom, RegionPAL)
+	palInit, err := NewEmulator(rom, RegionPAL)
 	if err != nil {
-		t.Fatalf("InitEmulatorBase PAL failed: %v", err)
+		t.Fatalf("NewEmulator PAL failed: %v", err)
 	}
 	basePAL := &palInit
 
@@ -266,7 +264,7 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 }
 
 func TestSerialize_StateIntegrity(t *testing.T) {
-	base := createTestEmulatorBase()
+	base := createTestEmulator()
 
 	state, err := base.Serialize()
 	if err != nil {

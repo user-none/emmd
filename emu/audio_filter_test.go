@@ -6,7 +6,7 @@ import (
 )
 
 func TestLowPass_StepResponse(t *testing.T) {
-	e := &EmulatorBase{
+	e := &Emulator{
 		audioBuffer: make([]int16, 0, 64),
 	}
 	// Fill buffer with constant 1000 on both channels
@@ -36,7 +36,7 @@ func TestLowPass_StepResponse(t *testing.T) {
 }
 
 func TestLowPass_Silence(t *testing.T) {
-	e := &EmulatorBase{
+	e := &Emulator{
 		audioBuffer: make([]int16, 64),
 	}
 
@@ -51,7 +51,7 @@ func TestLowPass_Silence(t *testing.T) {
 }
 
 func TestLowPass_SteadyState(t *testing.T) {
-	e := &EmulatorBase{
+	e := &Emulator{
 		audioBuffer: make([]int16, 0, 2000),
 	}
 	// Fill with enough constant samples for convergence
@@ -73,7 +73,7 @@ func TestLowPass_SteadyState(t *testing.T) {
 }
 
 func TestLowPass_NegativeStep(t *testing.T) {
-	e := &EmulatorBase{
+	e := &Emulator{
 		audioBuffer: make([]int16, 0, 64),
 	}
 	for i := 0; i < 32; i++ {
@@ -100,7 +100,7 @@ func TestLowPass_NegativeStep(t *testing.T) {
 
 func TestLowPass_StatePersistence(t *testing.T) {
 	// Run filter on two consecutive buffers and verify continuity
-	e := &EmulatorBase{
+	e := &Emulator{
 		audioBuffer: make([]int16, 0, 64),
 	}
 
