@@ -6,11 +6,11 @@ import (
 	"github.com/user-none/go-chip-sn76489"
 )
 
-func TestIO_ReadRegister_VersionNTSC(t *testing.T) {
+func TestIO_ReadRegister_VersionUSA(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	val := io.ReadRegister(0, 0xA10001)
 	if val != 0x80 {
@@ -18,11 +18,11 @@ func TestIO_ReadRegister_VersionNTSC(t *testing.T) {
 	}
 }
 
-func TestIO_ReadRegister_VersionPAL(t *testing.T) {
+func TestIO_ReadRegister_VersionEurope(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3546893, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7600489, 48000)
-	io := NewIO(vdp, psg, ym, RegionPAL)
+	io := NewIO(vdp, psg, ym, ConsoleEurope)
 
 	val := io.ReadRegister(0, 0xA10001)
 	if val != 0xC0 {
@@ -30,11 +30,23 @@ func TestIO_ReadRegister_VersionPAL(t *testing.T) {
 	}
 }
 
+func TestIO_ReadRegister_VersionJapan(t *testing.T) {
+	vdp := NewVDP(false)
+	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
+	ym := NewYM2612(7670454, 48000)
+	io := NewIO(vdp, psg, ym, ConsoleJapan)
+
+	val := io.ReadRegister(0, 0xA10001)
+	if val != 0x00 {
+		t.Errorf("expected 0x00 (domestic NTSC), got 0x%02X", val)
+	}
+}
+
 func TestIO_ReadRegister_ControllerData(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	val := io.ReadRegister(0, 0xA10003)
 	if val != 0xFF {
@@ -51,7 +63,7 @@ func TestIO_ReadRegister_Unknown(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	val := io.ReadRegister(0, 0xA10007)
 	if val != 0x00 {
@@ -63,7 +75,7 @@ func TestIO_WriteRegister_DataStored(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	// Writing to data register should store the value
 	io.WriteRegister(0, 0xA10003, 0x40)
@@ -79,7 +91,7 @@ func TestIO_Port1_TH1_NoButtons(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	io.WriteRegister(0, 0xA10003, 0x40) // data: TH=1
@@ -94,7 +106,7 @@ func TestIO_Port1_TH0_NoButtons(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	io.WriteRegister(0, 0xA10003, 0x00) // data: TH=0
@@ -112,7 +124,7 @@ func TestIO_Port1_TH1_UpPressed(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	io.WriteRegister(0, 0xA10003, 0x40) // data: TH=1
@@ -128,7 +140,7 @@ func TestIO_Port1_TH0_StartAPressed(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	io.WriteRegister(0, 0xA10003, 0x00) // data: TH=0
@@ -146,7 +158,7 @@ func TestIO_Port1_AllButtons(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	io.InputP1.Set(true, true, true, true, true, true, true, true, false, false, false, false)
@@ -172,7 +184,7 @@ func TestIO_CtrlRegister_ReadWrite(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	// Port 1 ctrl
 	io.WriteRegister(0, 0xA10009, 0x40)
@@ -193,7 +205,7 @@ func TestIO_Port2_NoController(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	// Default: P2 disconnected, ctrl=0, all input, peripheral=0xFF -> 0xFF
 	val := io.ReadRegister(0, 0xA10005)
@@ -223,7 +235,7 @@ func TestIO_Port1_DefaultState(t *testing.T) {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	// Default state: ctrl=0 (all input), data=0
 	// TH pulled high (ctrl bit 6=0), no buttons -> peripheral=0xFF
@@ -241,7 +253,7 @@ func newTestIO() *IO {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	return NewIO(vdp, psg, ym, RegionNTSC)
+	return NewIO(vdp, psg, ym, ConsoleUSA)
 }
 
 // thCycle performs a TH transition on port 1 by writing the data register.

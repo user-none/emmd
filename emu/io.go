@@ -38,12 +38,12 @@ const sixButtonTimeoutCycles uint64 = 11506
 // IO is a Genesis I/O controller wrapping the hardware components
 // needed for bus access.
 type IO struct {
-	InputP1 Input
-	InputP2 Input
-	Region  Region
-	vdp     *VDP
-	psg     *sn76489.SN76489
-	ym2612  *YM2612
+	InputP1       Input
+	InputP2       Input
+	consoleRegion ConsoleRegion
+	vdp           *VDP
+	psg           *sn76489.SN76489
+	ym2612        *YM2612
 
 	p1Data byte // Port 1 data register (output values)
 	p1Ctrl byte // Port 1 ctrl register (1=output, 0=input)
@@ -61,16 +61,16 @@ type IO struct {
 }
 
 // NewIO creates a new I/O controller.
-func NewIO(vdp *VDP, psg *sn76489.SN76489, ym2612 *YM2612, region Region) *IO {
+func NewIO(vdp *VDP, psg *sn76489.SN76489, ym2612 *YM2612, consoleRegion ConsoleRegion) *IO {
 	return &IO{
-		InputP1:      Input{Connected: true, SixButton: true},
-		InputP2:      Input{SixButton: true},
-		Region:       region,
-		vdp:          vdp,
-		psg:          psg,
-		ym2612:       ym2612,
-		p1LastTHHigh: true, // TH pulled high at power-on
-		p2LastTHHigh: true, // TH pulled high at power-on
+		InputP1:       Input{Connected: true, SixButton: true},
+		InputP2:       Input{SixButton: true},
+		consoleRegion: consoleRegion,
+		vdp:           vdp,
+		psg:           psg,
+		ym2612:        ym2612,
+		p1LastTHHigh:  true, // TH pulled high at power-on
+		p2LastTHHigh:  true, // TH pulled high at power-on
 	}
 }
 
@@ -80,11 +80,14 @@ func (io *IO) ReadRegister(cycle uint64, addr uint32) byte {
 	switch addr {
 	case 0xA10001:
 		// Version register: bit 7 = overseas, bit 6 = PAL, bits 3-0 = hardware version
-		var val byte = 0x80 // overseas
-		if io.Region == RegionPAL {
-			val |= 0x40
+		switch io.consoleRegion {
+		case ConsoleJapan:
+			return 0x00
+		case ConsoleEurope:
+			return 0xC0
+		default:
+			return 0x80
 		}
-		return val
 	case 0xA10003:
 		return io.readPort1(cycle)
 	case 0xA10005:

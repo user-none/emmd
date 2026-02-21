@@ -43,24 +43,55 @@ func GetTimingForRegion(r Region) RegionTiming {
 	return NTSCTiming
 }
 
-// DetectRegion inspects the ROM header region field at offset $1F0-$1FF
-// and returns PAL only when no NTSC region characters (J, U) are present
-// and at least one PAL character (E) is found. Multi-region ROMs prefer NTSC.
-func DetectRegion(rom []byte) Region {
+// ConsoleRegion represents the hardware region identity of the console.
+// This determines the version register value ($A10001) which games use
+// for region lockout checks. It is separate from the display timing
+// region (NTSC/PAL).
+type ConsoleRegion int
+
+const (
+	ConsoleJapan  ConsoleRegion = iota // Domestic, NTSC
+	ConsoleUSA                         // Overseas, NTSC
+	ConsoleEurope                      // Overseas, PAL
+)
+
+// DetectConsoleRegion inspects the ROM header region field at offset $1F0-$1FF
+// and returns the console region. For multi-region ROMs, priority is J > U > E.
+// Returns ConsoleUSA for unknown or missing region data.
+func DetectConsoleRegion(rom []byte) ConsoleRegion {
 	if len(rom) < 0x200 {
-		return RegionNTSC
+		return ConsoleUSA
 	}
-	hasNTSC := false
-	hasPAL := false
+	hasJ := false
+	hasU := false
+	hasE := false
 	for _, b := range rom[0x1F0:0x200] {
 		switch b {
-		case 'J', 'U':
-			hasNTSC = true
+		case 'J':
+			hasJ = true
+		case 'U':
+			hasU = true
 		case 'E':
-			hasPAL = true
+			hasE = true
 		}
 	}
-	if hasPAL && !hasNTSC {
+	if hasJ {
+		return ConsoleJapan
+	}
+	if hasU {
+		return ConsoleUSA
+	}
+	if hasE {
+		return ConsoleEurope
+	}
+	return ConsoleUSA
+}
+
+// DetectRegion inspects the ROM header region field at offset $1F0-$1FF
+// and returns the display timing region. ConsoleEurope maps to PAL;
+// ConsoleJapan and ConsoleUSA map to NTSC.
+func DetectRegion(rom []byte) Region {
+	if DetectConsoleRegion(rom) == ConsoleEurope {
 		return RegionPAL
 	}
 	return RegionNTSC

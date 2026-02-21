@@ -56,3 +56,54 @@ func TestDetectRegion_ROMTooShort(t *testing.T) {
 		t.Errorf("short ROM: got %v, want NTSC (default)", got)
 	}
 }
+
+// --- ConsoleRegion tests ---
+
+func TestDetectConsoleRegion_J(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("J")); got != ConsoleJapan {
+		t.Errorf("J: got %v, want ConsoleJapan", got)
+	}
+}
+
+func TestDetectConsoleRegion_U(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("U")); got != ConsoleUSA {
+		t.Errorf("U: got %v, want ConsoleUSA", got)
+	}
+}
+
+func TestDetectConsoleRegion_E(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("E")); got != ConsoleEurope {
+		t.Errorf("E: got %v, want ConsoleEurope", got)
+	}
+}
+
+func TestDetectConsoleRegion_JUE(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("JUE")); got != ConsoleJapan {
+		t.Errorf("JUE: got %v, want ConsoleJapan (J takes priority)", got)
+	}
+}
+
+func TestDetectConsoleRegion_UE(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("UE")); got != ConsoleUSA {
+		t.Errorf("UE: got %v, want ConsoleUSA", got)
+	}
+}
+
+func TestDetectConsoleRegion_JE(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("JE")); got != ConsoleJapan {
+		t.Errorf("JE: got %v, want ConsoleJapan (J takes priority)", got)
+	}
+}
+
+func TestDetectConsoleRegion_Empty(t *testing.T) {
+	if got := DetectConsoleRegion(makeROM("")); got != ConsoleUSA {
+		t.Errorf("empty: got %v, want ConsoleUSA (default)", got)
+	}
+}
+
+func TestDetectConsoleRegion_ROMTooShort(t *testing.T) {
+	rom := make([]byte, 0x100)
+	if got := DetectConsoleRegion(rom); got != ConsoleUSA {
+		t.Errorf("short ROM: got %v, want ConsoleUSA (default)", got)
+	}
+}

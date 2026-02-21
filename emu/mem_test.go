@@ -28,7 +28,7 @@ func makeTestBus() *GenesisBus {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 	return NewGenesisBus(rom, vdp, io, psg, ym)
 }
 
@@ -258,7 +258,7 @@ func makeTestBusWithSRAM() *GenesisBus {
 	vdp := NewVDP(false)
 	psg := sn76489.New(3579545, 48000, psgBufferSize, sn76489.Sega)
 	ym := NewYM2612(7670454, 48000)
-	io := NewIO(vdp, psg, ym, RegionNTSC)
+	io := NewIO(vdp, psg, ym, ConsoleUSA)
 	return NewGenesisBus(rom, vdp, io, psg, ym)
 }
 

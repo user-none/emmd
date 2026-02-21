@@ -59,13 +59,14 @@ type Emulator struct {
 
 // NewEmulator creates and initializes the shared emulator components.
 func NewEmulator(rom []byte, region Region) (Emulator, error) {
+	consoleRegion := DetectConsoleRegion(rom)
 	vdp := NewVDP(region == RegionPAL)
 	timing := GetTimingForRegion(region)
 
 	ym2612 := NewYM2612(timing.M68KClockHz, sampleRate)
 	psg := sn76489.New(timing.Z80ClockHz, sampleRate, psgBufferSize, sn76489.Sega)
 	psg.SetGain(psgGain)
-	io := NewIO(vdp, psg, ym2612, region)
+	io := NewIO(vdp, psg, ym2612, consoleRegion)
 
 	bus := NewGenesisBus(rom, vdp, io, psg, ym2612)
 	vdp.SetBus(bus)
