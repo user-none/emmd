@@ -20,7 +20,9 @@ func main() {
 
 	if *romPath != "" {
 		options := map[string]string{}
-		if !*sixButton {
+		if *sixButton {
+			options["six_button"] = "true"
+		} else {
 			options["six_button"] = "false"
 		}
 		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options); err != nil {

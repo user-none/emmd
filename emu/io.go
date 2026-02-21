@@ -63,8 +63,8 @@ type IO struct {
 // NewIO creates a new I/O controller.
 func NewIO(vdp *VDP, psg *sn76489.SN76489, ym2612 *YM2612, consoleRegion ConsoleRegion) *IO {
 	return &IO{
-		InputP1:       Input{Connected: true, SixButton: true},
-		InputP2:       Input{SixButton: true},
+		InputP1:       Input{Connected: true},
+		InputP2:       Input{},
 		consoleRegion: consoleRegion,
 		vdp:           vdp,
 		psg:           psg,

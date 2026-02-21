@@ -267,8 +267,19 @@ func thCycle(io *IO, cycle uint64, thHigh bool) byte {
 	return io.ReadRegister(cycle, 0xA10003)
 }
 
+func TestIO_NewIO_SixButtonDefaultFalse(t *testing.T) {
+	io := newTestIO()
+	if io.InputP1.SixButton {
+		t.Error("expected InputP1.SixButton to default to false")
+	}
+	if io.InputP2.SixButton {
+		t.Error("expected InputP2.SixButton to default to false")
+	}
+}
+
 func TestIO_SixButton_States0to3_BackwardCompat(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 
 	// No buttons pressed. Cycle through states 0-3 (two TH toggles)
@@ -308,6 +319,7 @@ func TestIO_SixButton_States0to3_BackwardCompat(t *testing.T) {
 
 func TestIO_SixButton_State5_Detection(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 
 	var cycle uint64 = 1000
@@ -337,6 +349,7 @@ func TestIO_SixButton_State5_Detection(t *testing.T) {
 
 func TestIO_SixButton_State6_ExtraButtons(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	// Press X and Z only
 	io.InputP1.Set(false, false, false, false, false, false, false, false, true, false, true, false)
@@ -370,6 +383,7 @@ func TestIO_SixButton_State6_ExtraButtons(t *testing.T) {
 
 func TestIO_SixButton_State7_EndMarker(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 
 	var cycle uint64 = 1000
@@ -401,6 +415,7 @@ func TestIO_SixButton_State7_EndMarker(t *testing.T) {
 
 func TestIO_SixButton_StateWraps(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 
 	var cycle uint64 = 1000
@@ -434,6 +449,7 @@ func TestIO_SixButton_StateWraps(t *testing.T) {
 
 func TestIO_SixButton_Timeout(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 
 	var cycle uint64 = 1000
@@ -464,6 +480,7 @@ func TestIO_SixButton_Timeout(t *testing.T) {
 
 func TestIO_SixButton_NoTimeoutWithinWindow(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 
 	var cycle uint64 = 1000
@@ -493,6 +510,7 @@ func TestIO_SixButton_NoTimeoutWithinWindow(t *testing.T) {
 
 func TestIO_SixButton_AllExtraButtonsPressed(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	// Press all extra buttons: X, Y, Z, Mode
 	io.InputP1.Set(false, false, false, false, false, false, false, false, true, true, true, true)
@@ -525,6 +543,7 @@ func TestIO_SixButton_AllExtraButtonsPressed(t *testing.T) {
 
 func TestIO_SixButton_NoExtraButtonsPressed(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	// No extra buttons pressed
 	io.InputP1.Set(false, false, false, false, false, false, false, false, false, false, false, false)
@@ -556,6 +575,7 @@ func TestIO_SixButton_NoExtraButtonsPressed(t *testing.T) {
 
 func TestIO_SixButton_TimeoutResetsAcrossFrames(t *testing.T) {
 	io := newTestIO()
+	io.InputP1.SixButton = true
 	io.WriteRegister(0, 0xA10009, 0x40) // ctrl: TH is output
 	io.InputP1.Set(true, false, false, false, true, false, false, true, false, false, false, false)
 
@@ -714,6 +734,7 @@ func TestIO_Port2_TH0_ButtonsPressed(t *testing.T) {
 func TestIO_Port2_SixButton_State6(t *testing.T) {
 	io := newTestIO()
 	io.InputP2.Connected = true
+	io.InputP2.SixButton = true
 	io.WriteRegister(0, 0xA1000B, 0x40) // ctrl: TH is output
 	// Press X and Z only
 	io.InputP2.Set(false, false, false, false, false, false, false, false, true, false, true, false)
@@ -747,6 +768,7 @@ func TestIO_Port2_SixButton_State6(t *testing.T) {
 func TestIO_Port2_SixButton_Detection(t *testing.T) {
 	io := newTestIO()
 	io.InputP2.Connected = true
+	io.InputP2.SixButton = true
 	io.WriteRegister(0, 0xA1000B, 0x40) // ctrl: TH is output
 
 	var cycle uint64 = 1000
