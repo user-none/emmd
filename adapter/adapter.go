@@ -38,7 +38,7 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 				Description: "Enable 6-button controller mode",
 				Type:        emucore.CoreOptionBool,
 				Default:     "false",
-				Category:    "Input",
+				Category:    emucore.CoreOptionCategoryInput,
 			},
 		},
 		RDBName:       "Sega - Mega Drive - Genesis",
