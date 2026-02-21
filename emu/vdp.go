@@ -648,13 +648,16 @@ func (v *VDP) StartScanline(line int) (vInt, hInt bool) {
 		}
 	}
 
-	// H-int counter: reload at VBlank start, decrement all other lines.
-	// On real hardware the counter runs continuously - it decrements
-	// during both active display and VBlank. Only the first VBlank line
-	// (the V-int line) unconditionally reloads from register 10.
-	if line == activeHeight {
+	// H-int counter: on real hardware the counter is loaded from register
+	// 10 at line 0 and at each VBlank line. It only decrements during
+	// active display (lines 0 to activeHeight-1). When it underflows
+	// below 0, H-int fires (if enabled) and the counter reloads.
+	// During VBlank the counter is reloaded each line but does not
+	// decrement and H-ints do not fire.
+	if line == 0 || line >= activeHeight {
 		v.hIntCounter = int(v.regs[10])
-	} else {
+	}
+	if line < activeHeight {
 		v.hIntCounter--
 		if v.hIntCounter < 0 {
 			v.hIntCounter = int(v.regs[10])

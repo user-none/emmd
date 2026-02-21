@@ -974,47 +974,43 @@ func TestVDP_HIntCounter_ReloadedAtVBlankStart(t *testing.T) {
 		t.Errorf("counter should reload to reg[10] on first VBlank line: got %d, want 2", vdp.hIntCounter)
 	}
 
-	// Subsequent VBlank lines decrement like active display
-	vdp.StartScanline(activeHeight + 1) // decrements 2 -> 1
-	if vdp.hIntCounter != 1 {
-		t.Errorf("counter should decrement during VBlank: got %d, want 1", vdp.hIntCounter)
+	// Subsequent VBlank lines reload from reg[10] each line
+	vdp.StartScanline(activeHeight + 1)
+	if vdp.hIntCounter != 2 {
+		t.Errorf("counter should reload each VBlank line: got %d, want 2", vdp.hIntCounter)
 	}
 
-	vdp.StartScanline(activeHeight + 2) // decrements 1 -> 0
-	if vdp.hIntCounter != 0 {
-		t.Errorf("counter should continue decrementing during VBlank: got %d, want 0", vdp.hIntCounter)
+	vdp.StartScanline(activeHeight + 2)
+	if vdp.hIntCounter != 2 {
+		t.Errorf("counter should reload each VBlank line: got %d, want 2", vdp.hIntCounter)
 	}
 }
 
-func TestVDP_HIntFiresDuringVBlank(t *testing.T) {
+func TestVDP_HIntSuppressedDuringVBlank(t *testing.T) {
 	vdp := makeTestVDP()
 	vdp.WriteControl(0, 0x8010) // enable H-int
-	vdp.WriteControl(0, 0x8A01) // H-int counter = 1
+	vdp.WriteControl(0, 0x8A00) // H-int counter = 0 (fires every active line)
 
 	activeHeight := vdp.ActiveHeight() // 224
 
-	// Enter VBlank: reloads counter to 1
+	// Enter VBlank: reloads counter to 0
 	vdp.StartScanline(activeHeight)
 
-	// VBlank+1: decrements 1 -> 0, no fire
+	// VBlank lines: counter reloads each line, no H-int fires
 	_, hInt := vdp.StartScanline(activeHeight + 1)
 	if hInt {
-		t.Error("H-int should not fire yet (counter=0)")
+		t.Error("H-int should not fire during VBlank")
 	}
 
-	// VBlank+2: decrements 0 -> -1, fires and reloads to 1
 	_, hInt = vdp.StartScanline(activeHeight + 2)
-	if !hInt {
-		t.Error("H-int should fire during VBlank when counter expires")
-	}
-	if vdp.hIntCounter != 1 {
-		t.Errorf("counter should reload after firing: got %d, want 1", vdp.hIntCounter)
+	if hInt {
+		t.Error("H-int should not fire during VBlank")
 	}
 
-	// VBlank+3: decrements 1 -> 0, no fire
-	_, hInt = vdp.StartScanline(activeHeight + 3)
-	if hInt {
-		t.Error("H-int should not fire after reload")
+	// Back to active display: H-int should fire again
+	_, hInt = vdp.StartScanline(0)
+	if !hInt {
+		t.Error("H-int should fire on active line with counter=0")
 	}
 }
 
