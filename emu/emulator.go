@@ -114,6 +114,7 @@ func (e *Emulator) RunFrame() {
 		vInt, hInt := e.vdp.StartScanline(i)
 		if vInt {
 			e.m68k.RequestInterrupt(6, nil)
+			e.vdp.AcknowledgeVInt()
 		}
 		if hInt {
 			e.m68k.RequestInterrupt(4, nil)

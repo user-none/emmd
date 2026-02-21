@@ -116,10 +116,23 @@ func (v *VDP) DMAStallCycles() int {
 
 // TakeAssertedInterrupt returns and clears any interrupt level asserted
 // by a VDP register write (e.g., enabling V-int while V-int is pending).
+// When a V-int (level 6) is taken, vIntPending is cleared to match the
+// real hardware IACK (interrupt acknowledge) cycle behavior.
 func (v *VDP) TakeAssertedInterrupt() uint8 {
 	level := v.assertedIntLevel
 	v.assertedIntLevel = 0
+	if level == 6 {
+		v.vIntPending = false
+	}
 	return level
+}
+
+// AcknowledgeVInt clears vIntPending, matching the behavior of the real
+// hardware IACK (interrupt acknowledge) cycle. On the Genesis, the 68K's
+// interrupt acknowledge clears the VDP's V-int pending flag so that
+// re-enabling V-int inside the handler does not immediately re-trigger.
+func (v *VDP) AcknowledgeVInt() {
+	v.vIntPending = false
 }
 
 // --- Register helpers ---

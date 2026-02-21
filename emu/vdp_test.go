@@ -922,6 +922,63 @@ func TestVDP_VIntNoReassertWhenAlreadyEnabled(t *testing.T) {
 	}
 }
 
+func TestVDP_VIntAcknowledgeClearsPending(t *testing.T) {
+	vdp := makeTestVDP()
+	// Enable V-int
+	vdp.WriteControl(0, 0x8120)
+
+	// Trigger V-blank: vIntPending = true, vInt = true
+	vdp.StartScanline(0)
+	vInt, _ := vdp.StartScanline(224)
+	if !vInt {
+		t.Fatal("vInt should fire")
+	}
+
+	// Simulate IACK: acknowledge the V-int (clears vIntPending)
+	vdp.AcknowledgeVInt()
+
+	// Simulate handler: disable V-int then re-enable V-int.
+	// Since vIntPending was cleared by the acknowledge, re-enabling
+	// V-int should NOT re-assert the interrupt.
+	vdp.WriteControl(0, 0x8100) // disable V-int
+	vdp.WriteControl(0, 0x8120) // re-enable V-int
+	if level := vdp.TakeAssertedInterrupt(); level != 0 {
+		t.Errorf("V-int should not re-assert after acknowledge, got level %d", level)
+	}
+}
+
+func TestVDP_VIntReassertClearsPending(t *testing.T) {
+	vdp := makeTestVDP()
+	// Start with V-int disabled
+	vdp.WriteControl(0, 0x8100)
+
+	// Trigger V-blank: vIntPending = true, no vInt (V-int disabled)
+	vdp.StartScanline(0)
+	vdp.StartScanline(224)
+	if !vdp.vIntPending {
+		t.Fatal("vIntPending should be set")
+	}
+
+	// Enable V-int: 0->1 transition with vIntPending -> asserts level 6
+	vdp.WriteControl(0, 0x8120)
+	level := vdp.TakeAssertedInterrupt()
+	if level != 6 {
+		t.Fatalf("expected asserted level 6, got %d", level)
+	}
+
+	// TakeAssertedInterrupt for level 6 should have cleared vIntPending
+	if vdp.vIntPending {
+		t.Error("vIntPending should be cleared after TakeAssertedInterrupt returns level 6")
+	}
+
+	// Disabling then re-enabling V-int should NOT re-assert
+	vdp.WriteControl(0, 0x8100)
+	vdp.WriteControl(0, 0x8120)
+	if level := vdp.TakeAssertedInterrupt(); level != 0 {
+		t.Errorf("V-int should not re-assert after pending was cleared, got level %d", level)
+	}
+}
+
 func TestVDP_HIntCounter(t *testing.T) {
 	vdp := makeTestVDP()
 	// Enable H-int (reg 0 bit 4)
