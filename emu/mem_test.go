@@ -144,9 +144,9 @@ func TestGenesisBus_RAMMirroring(t *testing.T) {
 func TestGenesisBus_IOVersionRegister(t *testing.T) {
 	bus := makeTestBus()
 	val := bus.ReadCycle(0, m68k.Byte, 0xA10001)
-	// NTSC overseas: 0x80
-	if val != 0x80 {
-		t.Errorf("expected 0x80, got 0x%02X", val)
+	// NTSC overseas, no expansion: 0xA0
+	if val != 0xA0 {
+		t.Errorf("expected 0xA0, got 0x%02X", val)
 	}
 }
 

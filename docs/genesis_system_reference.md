@@ -356,13 +356,13 @@ All I/O registers are byte-wide at odd addresses.
 | 4 | -- | Reserved |
 | 3-0 | VER | Hardware version ($0 = no TMSS, $1+ = TMSS present) |
 
-Common composite values:
+Common composite values (no expansion unit):
 
 | Value | Region |
 |-------|--------|
-| $00 | Japan NTSC (Mega Drive) |
-| $80 | USA NTSC (Genesis) |
-| $C0 | Europe PAL (Mega Drive) |
+| $20 | Japan NTSC (Mega Drive) |
+| $A0 | USA NTSC (Genesis) |
+| $E0 | Europe PAL (Mega Drive) |
 
 #### 6.2.2 Data Registers ($A10003, $A10005, $A10007)
 

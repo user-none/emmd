@@ -79,14 +79,15 @@ func NewIO(vdp *VDP, psg *sn76489.SN76489, ym2612 *YM2612, consoleRegion Console
 func (io *IO) ReadRegister(cycle uint64, addr uint32) byte {
 	switch addr {
 	case 0xA10001:
-		// Version register: bit 7 = overseas, bit 6 = PAL, bits 3-0 = hardware version
+		// Version register: bit 7 = overseas, bit 6 = PAL,
+		// bit 5 = no expansion (1), bits 3-0 = hardware version
 		switch io.consoleRegion {
 		case ConsoleJapan:
-			return 0x00
+			return 0x20
 		case ConsoleEurope:
-			return 0xC0
+			return 0xE0
 		default:
-			return 0x80
+			return 0xA0
 		}
 	case 0xA10003:
 		return io.readPort1(cycle)

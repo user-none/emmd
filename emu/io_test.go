@@ -13,8 +13,8 @@ func TestIO_ReadRegister_VersionUSA(t *testing.T) {
 	io := NewIO(vdp, psg, ym, ConsoleUSA)
 
 	val := io.ReadRegister(0, 0xA10001)
-	if val != 0x80 {
-		t.Errorf("expected 0x80 (overseas NTSC), got 0x%02X", val)
+	if val != 0xA0 {
+		t.Errorf("expected 0xA0 (overseas NTSC, no expansion), got 0x%02X", val)
 	}
 }
 
@@ -25,8 +25,8 @@ func TestIO_ReadRegister_VersionEurope(t *testing.T) {
 	io := NewIO(vdp, psg, ym, ConsoleEurope)
 
 	val := io.ReadRegister(0, 0xA10001)
-	if val != 0xC0 {
-		t.Errorf("expected 0xC0 (overseas PAL), got 0x%02X", val)
+	if val != 0xE0 {
+		t.Errorf("expected 0xE0 (overseas PAL, no expansion), got 0x%02X", val)
 	}
 }
 
@@ -37,8 +37,8 @@ func TestIO_ReadRegister_VersionJapan(t *testing.T) {
 	io := NewIO(vdp, psg, ym, ConsoleJapan)
 
 	val := io.ReadRegister(0, 0xA10001)
-	if val != 0x00 {
-		t.Errorf("expected 0x00 (domestic NTSC), got 0x%02X", val)
+	if val != 0x20 {
+		t.Errorf("expected 0x20 (domestic NTSC, no expansion), got 0x%02X", val)
 	}
 }
 
