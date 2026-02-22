@@ -13,6 +13,12 @@ func (v *VDP) renderSprites(line int) {
 	width := v.activeWidth()
 	tileRows := v.tileRows()
 	tileSz := v.tileSize()
+	// Power-of-2 mask and shift for tile row divmod (see renderPlaneB)
+	tileRowMask := tileRows - 1 // 7 or 15
+	tileRowShift := uint(3)     // log2(8) = 3
+	if tileRows == 16 {
+		tileRowShift = 4 // log2(16) = 4
+	}
 
 	// Per-line limits
 	var maxSprites, maxPixels int
@@ -108,14 +114,16 @@ func (v *VDP) renderSprites(line int) {
 					spriteCol = spriteWidth - 1 - spriteCol
 				}
 
-				// Multi-cell sprites use column-major tile order
-				cellCol := spriteCol / 8
-				cellRow := spriteRow / tileRows
+				// Multi-cell sprites use column-major tile order.
+				// Shift and mask split pixel coords into cell and offset
+				// (equivalent to divmod by 8 and tileRows).
+				cellCol := spriteCol >> 3            // spriteCol / 8
+				cellRow := spriteRow >> tileRowShift // spriteRow / tileRows
 				tileInSprite := uint16(cellCol*vSizeCells + cellRow)
 				tileIndex := baseTile + tileInSprite
 
-				pixX := spriteCol % 8
-				pixY := spriteRow % tileRows
+				pixX := spriteCol & 7           // spriteCol % 8
+				pixY := spriteRow & tileRowMask // spriteRow % tileRows
 
 				tileAddr := (tileIndex * tileSz) & 0xFFFF
 				colorIdx := v.decodeTilePixel(tileAddr, pixX, pixY, false, false)

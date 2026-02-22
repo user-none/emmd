@@ -160,17 +160,33 @@ func (v *VDP) renderPlaneB(line int) {
 	ntWidthPx := hCells * 8
 	ntHeightPx := vCells * tileRows
 
+	// Nametable dimensions (32, 64, 128 cells) and tile heights (8, 16 rows)
+	// are always powers of 2. This allows replacing modulo with bitwise AND
+	// and division with right shift: x % n == x & (n-1), x / n == x >> log2(n).
+	hMask := ntWidthPx - 1      // e.g. 256-1 = 0xFF for wrapping x into nametable
+	vMask := ntHeightPx - 1     // e.g. 256-1 = 0xFF for wrapping y into nametable
+	tileRowMask := tileRows - 1 // 7 (8px tiles) or 15 (16px interlace tiles)
+	tileRowShift := uint(3)     // log2(8) = 3 for normal tiles
+	if tileRows == 16 {
+		tileRowShift = 4 // log2(16) = 4 for interlace double-res tiles
+	}
+
 	for x := 0; x < width; x++ {
 		vScroll := v.vScrollValue(x, true)
 
-		// H-scroll is subtracted, V-scroll is added
-		vramX := ((x-hScrollB)%ntWidthPx + ntWidthPx) % ntWidthPx
-		vramY := ((line+vScroll)%ntHeightPx + ntHeightPx) % ntHeightPx
+		// Wrap scrolled coordinates into the nametable.
+		// The double-modulo for negative values is unnecessary with bitwise
+		// AND because the mask naturally produces a positive result when
+		// the nametable size is a power of 2.
+		vramX := (x - hScrollB) & hMask   // ((x-hScrollB) % ntWidthPx + ntWidthPx) % ntWidthPx
+		vramY := (line + vScroll) & vMask // ((line+vScroll) % ntHeightPx + ntHeightPx) % ntHeightPx
 
-		cellX := vramX / 8
-		cellY := vramY / tileRows
-		pixX := vramX % 8
-		pixY := vramY % tileRows
+		// Split the wrapped pixel coordinate into cell index and pixel
+		// offset within that cell. Equivalent to divmod by 8 or 16.
+		cellX := vramX >> 3            // vramX / 8
+		cellY := vramY >> tileRowShift // vramY / tileRows
+		pixX := vramX & 7              // vramX % 8
+		pixY := vramY & tileRowMask    // vramY % tileRows
 
 		// Nametable entry address: 2 bytes per cell, row-major
 		ntAddr := (ntBase + uint16(cellY*hCells+cellX)*2) & 0xFFFF
@@ -207,15 +223,26 @@ func (v *VDP) getPlaneAPixel(screenX, line int) layerPixel {
 	ntWidthPx := hCells * 8
 	ntHeightPx := vCells * tileRows
 
+	// Power-of-2 masks and shifts (see renderPlaneB for detailed explanation)
+	hMask := ntWidthPx - 1
+	vMask := ntHeightPx - 1
+	tileRowMask := tileRows - 1
+	tileRowShift := uint(3)
+	if tileRows == 16 {
+		tileRowShift = 4
+	}
+
 	vScroll := v.vScrollValue(screenX, false)
 
-	vramX := ((screenX-hScrollA)%ntWidthPx + ntWidthPx) % ntWidthPx
-	vramY := ((line+vScroll)%ntHeightPx + ntHeightPx) % ntHeightPx
+	// Wrap scrolled coordinates into nametable: equivalent to double-modulo
+	vramX := (screenX - hScrollA) & hMask
+	vramY := (line + vScroll) & vMask
 
-	cellX := vramX / 8
-	cellY := vramY / tileRows
-	pixX := vramX % 8
-	pixY := vramY % tileRows
+	// Split into cell index and pixel offset: equivalent to divmod by 8 or 16
+	cellX := vramX >> 3            // vramX / 8
+	cellY := vramY >> tileRowShift // vramY / tileRows
+	pixX := vramX & 7              // vramX % 8
+	pixY := vramY & tileRowMask    // vramY % tileRows
 
 	ntAddr := (ntBase + uint16(cellY*hCells+cellX)*2) & 0xFFFF
 	entryHi := v.vram[ntAddr]

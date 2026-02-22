@@ -76,10 +76,16 @@ func (v *VDP) getWindowPixel(screenX, line int) layerPixel {
 	tileRows := v.tileRows()
 	tileSz := v.tileSize()
 
-	cellX := screenX / 8
-	cellY := line / tileRows
-	pixX := screenX % 8
-	pixY := line % tileRows
+	// Shift and mask split pixel coords into cell index and pixel offset
+	// (equivalent to divmod by 8 and tileRows). See renderPlaneB for details.
+	cellX := screenX >> 3   // screenX / 8
+	pixX := screenX & 7     // screenX % 8
+	tileRowShift := uint(3) // log2(8) = 3
+	if tileRows == 16 {
+		tileRowShift = 4 // log2(16) = 4
+	}
+	cellY := line >> tileRowShift // line / tileRows
+	pixY := line & (tileRows - 1) // line % tileRows
 
 	ntAddr := (ntBase + uint16(cellY*ntWidth+cellX)*2) & 0xFFFF
 	entryHi := v.vram[ntAddr]
