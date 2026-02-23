@@ -11,7 +11,6 @@
 /build/
 
 # Binaries for programs and plugins
-/emkiii
 *.exe
 *.exe~
 *.dll
@@ -40,11 +39,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
-
-emkiii_libretro.h
-emkiii_libretro.so
-emkiii_libretro.dll
-emkiii_libretro.dylib
 
 # iOS
 ios/Frameworks/
