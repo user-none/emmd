@@ -43,7 +43,7 @@ go.work.sum
 # iOS
 ios/Frameworks/
 ios/Signing.xcconfig
-ios/eMkIII/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
+ios/emmd/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 **/*.xcodeproj/xcuserdata/
 **/*.xcodeproj/project.xcworkspace/xcuserdata/
 **/*.xcworkspace/xcuserdata/
