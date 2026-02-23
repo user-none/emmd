@@ -9,6 +9,7 @@ APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 # Source files
 ICON_MASTER := assets/icon.png
 ICON_ICNS := $(BUILD_DIR)/icon.icns
+IOS_ICON := ios/emmd/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 
 # Build all targets
 all: libretro standalone
@@ -35,7 +36,12 @@ libretro:
 	go build -buildmode=c-shared -o $(BUILD_DIR)/emmd_libretro.dylib ./cmd/libretro/
 
 # Generate icons from master PNG
-icons: $(ICON_ICNS)
+icons: $(ICON_ICNS) $(IOS_ICON)
+
+# iOS icon (just copy the 1024x1024 master)
+$(IOS_ICON): $(ICON_MASTER)
+	@echo "Copying icon to iOS..."
+	@cp $(ICON_MASTER) $(IOS_ICON)
 
 $(ICON_ICNS): $(ICON_MASTER) | $(BUILD_DIR)
 	@echo "Generating macOS icon..."
