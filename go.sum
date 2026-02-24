@@ -86,6 +86,8 @@ github.com/user-none/eblitui/standalone v0.3.0 h1:O+92aiedkBUZ19+xmlft+F3MXU62Hl
 github.com/user-none/eblitui/standalone v0.3.0/go.mod h1:zJh7iiYa28w4LX+wUPAp1iXaM3Ojej/VsQ3r7giR3Yc=
 github.com/user-none/go-chip-m68k v0.0.0-20260217123337-55dbcedff26a h1:lEbcp+Nhf9TBsPROoIfp5sxx7X3IzmJpqujwP4Vn54Y=
 github.com/user-none/go-chip-m68k v0.0.0-20260217123337-55dbcedff26a/go.mod h1:RNJR6/n5/2bMF0clriCmuFXvj4LBukgYqsjdxcWxvlY=
+github.com/user-none/go-chip-m68k v0.0.0-20260224221537-9eb803417491 h1:ASiSpC3LmerbRmlXIcuMo2g/+3LVDbvPm10JjwKrTrw=
+github.com/user-none/go-chip-m68k v0.0.0-20260224221537-9eb803417491/go.mod h1:RNJR6/n5/2bMF0clriCmuFXvj4LBukgYqsjdxcWxvlY=
 github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080 h1:wagV2NEnIG7QdFstzwNEsoLOJ71wcfqHV/r7a00y2Vw=
 github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080/go.mod h1:WJdKIGKYMXS8F4eDTaHoG44+l5b1Bm5JDksdAPhDGf0=
 github.com/user-none/go-chip-z80 v0.0.0-20260217121811-e750030ddfd5 h1:H4G0i/vnC6zk7Dc+LC6vT0bAmKmySBQcDypehgSp/18=
