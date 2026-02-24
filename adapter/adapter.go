@@ -41,13 +41,14 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 				Category:    emucore.CoreOptionCategoryInput,
 			},
 		},
-		RDBName:       "Sega - Mega Drive - Genesis",
-		ThumbnailRepo: "Sega_-_Mega_Drive_-_Genesis",
-		DataDirName:   "emmd",
-		ConsoleID:     1,
-		CoreName:      emu.Name,
-		CoreVersion:   emu.Version,
-		SerializeSize: emu.SerializeSize(),
+		RDBName:         "Sega - Mega Drive - Genesis",
+		ThumbnailRepo:   "Sega_-_Mega_Drive_-_Genesis",
+		DataDirName:     "emmd",
+		ConsoleID:       1,
+		CoreName:        emu.Name,
+		CoreVersion:     emu.Version,
+		SerializeSize:   emu.SerializeSize(),
+		BigEndianMemory: true,
 	}
 }
 

@@ -21,6 +21,8 @@ github.com/ebitengine/oto/v3 v3.4.0 h1:br0PgASsEWaoWn38b2Goe7m1GKFYfNgnsjSd5Gg+/
 github.com/ebitengine/oto/v3 v3.4.0/go.mod h1:IOleLVD0m+CMak3mRVwsYY8vTctQgOM0iiL6S7Ar7eI=
 github.com/ebitengine/purego v0.9.1 h1:a/k2f2HQU3Pi399RPW1MOaZyhKJL9w/xFpKAg4q1s0A=
 github.com/ebitengine/purego v0.9.1/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
+github.com/ebitengine/purego v0.10.0 h1:QIw4xfpWT6GWTzaW5XEKy3HXoqrJGx1ijYHzTF0/ISU=
+github.com/ebitengine/purego v0.10.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/ebitenui/ebitenui v0.7.2 h1:gSMiKvgJbrbYo57hrYeI3vRzE12kIFDNq4X09WLgM/o=
 github.com/ebitenui/ebitenui v0.7.2/go.mod h1:QiJoDflkWoBv4V/LKErS3cgzTZHrXDQyqajef7IA8vM=
 github.com/frustra/bbcode v0.0.0-20201127003707-6ef347fbe1c8 h1:sdIsYe6Vv7KIWZWp8KqSeTl+XlF17d+wHCC4lbxFcYs=
@@ -70,6 +72,8 @@ github.com/user-none/eblitui-ios v0.1.0 h1:qg8dC6RXuLojg0EoEE0tnymFGQfiVZhIsxxcK
 github.com/user-none/eblitui-ios v0.1.0/go.mod h1:9p+2XfkiQ6FBR2mGh8ewW+Oo8VUZ3DXQ7x2qcGiajGw=
 github.com/user-none/eblitui/api v0.2.0 h1:zRva255retpepagNJJ3Z6TvQZDyuqmrbA0OP/63eaM0=
 github.com/user-none/eblitui/api v0.2.0/go.mod h1:90OfXuzkCTNKFnMd4wOnxs/DyoS4MBGZ/zvMbPwQFXo=
+github.com/user-none/eblitui/api v0.2.1 h1:5RbBLnjelLJYOWWd25T1KZeNHGQT5CfTPsPg4R558vE=
+github.com/user-none/eblitui/api v0.2.1/go.mod h1:90OfXuzkCTNKFnMd4wOnxs/DyoS4MBGZ/zvMbPwQFXo=
 github.com/user-none/eblitui/libretro v0.1.0 h1:Tjzf/pAdkk+gMIV6XgV1/c1I5h1Y3X+4/jaTPK0c+fk=
 github.com/user-none/eblitui/libretro v0.1.0/go.mod h1:YqipyxZAz4Y/WVIyEmMn2JRBJtuhZAt7SILk+a/lPjE=
 github.com/user-none/eblitui/rdb v0.1.0 h1:/ZIzlkTTUqGaFtMT8HNgiHouJ/SMpRv+uUVbxJlDmZM=
@@ -78,6 +82,8 @@ github.com/user-none/eblitui/romloader v0.1.0 h1:Il7ydlgKA+nPZ7yAxzEScXrgo6ecRAW
 github.com/user-none/eblitui/romloader v0.1.0/go.mod h1:klV9imkjiFof1IgsZTBATmwfVF900dMirQ6q8VysJIQ=
 github.com/user-none/eblitui/standalone v0.2.1 h1:8oRwyoTH4F6dPsmLLjLpDRq6OYeuuhjKVZ8+I+DxxN8=
 github.com/user-none/eblitui/standalone v0.2.1/go.mod h1:fENtHE3bn8KK6hOS82AHw9UfcgejVphajh51fUbblJI=
+github.com/user-none/eblitui/standalone v0.3.0 h1:O+92aiedkBUZ19+xmlft+F3MXU62HlA3wYwqQKIeDrM=
+github.com/user-none/eblitui/standalone v0.3.0/go.mod h1:zJh7iiYa28w4LX+wUPAp1iXaM3Ojej/VsQ3r7giR3Yc=
 github.com/user-none/go-chip-m68k v0.0.0-20260217123337-55dbcedff26a h1:lEbcp+Nhf9TBsPROoIfp5sxx7X3IzmJpqujwP4Vn54Y=
 github.com/user-none/go-chip-m68k v0.0.0-20260217123337-55dbcedff26a/go.mod h1:RNJR6/n5/2bMF0clriCmuFXvj4LBukgYqsjdxcWxvlY=
 github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080 h1:wagV2NEnIG7QdFstzwNEsoLOJ71wcfqHV/r7a00y2Vw=

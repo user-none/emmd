@@ -4,9 +4,9 @@ go 1.25.7
 
 require (
 	github.com/user-none/eblitui-ios v0.1.0
-	github.com/user-none/eblitui/api v0.2.0
+	github.com/user-none/eblitui/api v0.2.1
 	github.com/user-none/eblitui/libretro v0.1.0
-	github.com/user-none/eblitui/standalone v0.2.1
+	github.com/user-none/eblitui/standalone v0.3.0
 	github.com/user-none/go-chip-m68k v0.0.0-20260217123337-55dbcedff26a
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
 	github.com/user-none/go-chip-z80 v0.0.0-20260217121811-e750030ddfd5
@@ -22,7 +22,7 @@ require (
 	github.com/ebitengine/gomobile v0.0.0-20260211053922-3d992dae95d1 // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/oto/v3 v3.4.0 // indirect
-	github.com/ebitengine/purego v0.9.1 // indirect
+	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/ebitenui/ebitenui v0.7.2 // indirect
 	github.com/frustra/bbcode v0.0.0-20201127003707-6ef347fbe1c8 // indirect
 	github.com/go-text/typesetting v0.3.3 // indirect
