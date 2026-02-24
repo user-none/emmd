@@ -72,6 +72,7 @@ func NewEmulator(rom []byte, region Region) (Emulator, error) {
 	vdp.SetBus(bus)
 
 	cpu := m68k.New(bus)
+	bus.SetCPU(cpu)
 
 	z80Mem := NewZ80Memory(bus)
 	z80CPU := z80.New(z80Mem)

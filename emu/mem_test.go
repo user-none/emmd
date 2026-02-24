@@ -413,6 +413,66 @@ func TestGenesisBus_SRAMGetSet(t *testing.T) {
 	}
 }
 
+func TestGenesisBus_TASWriteSuppressed(t *testing.T) {
+	bus := makeTestBus()
+	// Place a TAS (An) instruction at the NOP location: 0x4A90 = TAS (A0)
+	bus.rom[0x200] = 0x4A
+	bus.rom[0x201] = 0x90
+	// The TAS target: set up A0 to point to RAM
+	// Write a known value to RAM at 0xFF0010
+	bus.WriteCycle(0, m68k.Byte, 0xFF0010, 0x55)
+
+	// Create CPU so the bus has the IR reference
+	cpu := m68k.New(bus)
+	bus.SetCPU(cpu)
+
+	// Manually set A0 to point to our RAM address and set IR to TAS opcode
+	regs := cpu.Registers()
+	regs.A[0] = 0xFF0010
+	regs.PC = 0x200
+	regs.SR = 0x2700 // Supervisor mode, all interrupts masked
+	cpu.SetState(regs)
+
+	// Step the CPU to execute the TAS instruction
+	cpu.Step()
+
+	// RAM should be unchanged (write-back suppressed on Genesis)
+	val := bus.ReadCycle(0, m68k.Byte, 0xFF0010)
+	if val != 0x55 {
+		t.Errorf("TAS should not write back on Genesis: expected 0x55, got 0x%02X", val)
+	}
+
+	// Flags should still reflect the test (N=0, Z=0 for value 0x55)
+	regs = cpu.Registers()
+	if regs.SR&0x04 != 0 {
+		t.Error("Z flag should be clear (byte was 0x55, not zero)")
+	}
+}
+
+func TestGenesisBus_TASRegisterNotSuppressed(t *testing.T) {
+	bus := makeTestBus()
+	// TAS D0 = 0x4AC0
+	bus.rom[0x200] = 0x4A
+	bus.rom[0x201] = 0xC0
+
+	cpu := m68k.New(bus)
+	bus.SetCPU(cpu)
+
+	regs := cpu.Registers()
+	regs.D[0] = 0x00000055
+	regs.PC = 0x200
+	regs.SR = 0x2700
+	cpu.SetState(regs)
+
+	cpu.Step()
+
+	// Register TAS should still set bit 7 (no bus write involved)
+	regs = cpu.Registers()
+	if regs.D[0]&0xFF != 0xD5 {
+		t.Errorf("TAS Dn should set bit 7: expected D0 low byte 0xD5, got 0x%02X", regs.D[0]&0xFF)
+	}
+}
+
 func TestGenesisBus_A130F1Disable(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// Enable + writable, write data

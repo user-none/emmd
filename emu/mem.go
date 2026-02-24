@@ -49,6 +49,9 @@ type GenesisBus struct {
 	z80BusRequested bool
 	z80Reset        bool
 	z80PendingReset bool // Set when Z80 reset transitions from asserted to deasserted
+
+	// CPU reference for instruction-aware bus behavior (e.g., TAS write suppression)
+	cpu *m68k.CPU
 }
 
 // NewGenesisBus creates a new GenesisBus with the given ROM, VDP, IO, PSG, and YM2612.
@@ -67,6 +70,26 @@ func NewGenesisBus(rom []byte, vdp *VDP, io *IO, psg *sn76489.SN76489, ym2612 *Y
 	}
 	bus.parseSRAMHeader()
 	return bus
+}
+
+// SetCPU sets the CPU reference for instruction-aware bus behavior.
+// Called after CPU creation due to circular construction dependency.
+func (b *GenesisBus) SetCPU(cpu *m68k.CPU) {
+	b.cpu = cpu
+}
+
+// isTASWriteBack returns true if the current 68K instruction is TAS with a
+// memory operand. On Genesis hardware, the TAS read-modify-write bus cycle
+// does not complete the write-back phase because the VDP bus arbiter does
+// not support RMW cycles.
+func (b *GenesisBus) isTASWriteBack() bool {
+	if b.cpu == nil {
+		return false
+	}
+	ir := b.cpu.Registers().IR
+	// TAS opcode: 0100 1010 11MM MRRR (0x4AC0-0x4AFF)
+	// Mode 000 = data register (write goes to register, not bus)
+	return ir&0xFFC0 == 0x4AC0 && ir&0x0038 != 0
 }
 
 // parseSRAMHeader reads the ROM header at $1B0-$1BB for SRAM metadata.
@@ -199,6 +222,12 @@ func (b *GenesisBus) Write(s m68k.Size, addr uint32, value uint32) {
 
 // WriteCycle implements m68k.CycleBus.
 func (b *GenesisBus) WriteCycle(cycle uint64, s m68k.Size, addr uint32, value uint32) {
+	// Genesis hardware: TAS memory write-back fails because the VDP bus
+	// arbiter does not support read-modify-write cycles. Suppress the write.
+	if b.isTASWriteBack() {
+		return
+	}
+
 	addr &= 0xFFFFFF // 24-bit address bus
 
 	switch {
