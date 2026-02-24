@@ -55,17 +55,25 @@ const (
 	ConsoleEurope                      // Overseas, PAL
 )
 
-// DetectConsoleRegion inspects the ROM header region field at offset $1F0-$1FF
-// and returns the console region. For multi-region ROMs, priority is J > U > E.
+// DetectConsoleRegion inspects the ROM header region field at offset $1F0-$1F2
+// and returns the console region. The field uses either character format
+// ('J', 'U', 'E') or hex digit format ('0'-'9', 'A'-'F') where bits encode
+// regions: bit 0 = Japan, bit 2 = Americas, bit 3 = Europe.
+// Character format is checked first. If no character codes are found, the
+// first non-space byte is parsed as a hex digit.
+// For multi-region ROMs, priority is U > J > E.
 // Returns ConsoleUSA for unknown or missing region data.
 func DetectConsoleRegion(rom []byte) ConsoleRegion {
 	if len(rom) < 0x200 {
 		return ConsoleUSA
 	}
+
 	hasJ := false
 	hasU := false
 	hasE := false
-	for _, b := range rom[0x1F0:0x200] {
+
+	// Phase 1: scan first 3 bytes for character format codes.
+	for _, b := range rom[0x1F0:0x1F3] {
 		switch b {
 		case 'J':
 			hasJ = true
@@ -75,11 +83,39 @@ func DetectConsoleRegion(rom []byte) ConsoleRegion {
 			hasE = true
 		}
 	}
-	if hasJ {
-		return ConsoleJapan
+
+	// Phase 2: if no character codes found, try hex digit format.
+	if !hasJ && !hasU && !hasE {
+		for _, b := range rom[0x1F0:0x1F3] {
+			if b == ' ' {
+				continue
+			}
+			var val int
+			if b >= '0' && b <= '9' {
+				val = int(b - '0')
+			} else if b >= 'A' && b <= 'F' {
+				val = int(b-'A') + 10
+			} else {
+				break
+			}
+			if val&0x1 != 0 {
+				hasJ = true
+			}
+			if val&0x4 != 0 {
+				hasU = true
+			}
+			if val&0x8 != 0 {
+				hasE = true
+			}
+			break
+		}
 	}
+
 	if hasU {
 		return ConsoleUSA
+	}
+	if hasJ {
+		return ConsoleJapan
 	}
 	if hasE {
 		return ConsoleEurope
@@ -87,7 +123,7 @@ func DetectConsoleRegion(rom []byte) ConsoleRegion {
 	return ConsoleUSA
 }
 
-// DetectRegion inspects the ROM header region field at offset $1F0-$1FF
+// DetectRegion inspects the ROM header region field at offset $1F0-$1F2
 // and returns the display timing region. ConsoleEurope maps to PAL;
 // ConsoleJapan and ConsoleUSA map to NTSC.
 func DetectRegion(rom []byte) Region {
