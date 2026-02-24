@@ -141,6 +141,32 @@ func TestGenesisBus_RAMMirroring(t *testing.T) {
 	}
 }
 
+func TestGenesisBus_RAMMirrorE00000(t *testing.T) {
+	bus := makeTestBus()
+
+	// RAM is mirrored through $E00000-$FFFFFF (64KB physical, mirrored every $10000).
+	// Write via $FF0000, read back via $E00000 mirror.
+	bus.WriteCycle(0, m68k.Word, 0xFF0042, 0x1234)
+	val := bus.ReadCycle(0, m68k.Word, 0xE00042)
+	if val != 0x1234 {
+		t.Errorf("$E00000 mirror read: expected 0x1234, got 0x%04X", val)
+	}
+
+	// Write via $E10000 mirror, read back via $FF0000.
+	bus.WriteCycle(0, m68k.Byte, 0xE10080, 0xAB)
+	val = bus.ReadCycle(0, m68k.Byte, 0xFF0080)
+	if val != 0xAB {
+		t.Errorf("$E10000 mirror write: expected 0xAB, got 0x%02X", val)
+	}
+
+	// $FE0000 mirror should also work.
+	bus.WriteCycle(0, m68k.Byte, 0xFE0010, 0xCD)
+	val = bus.ReadCycle(0, m68k.Byte, 0xFF0010)
+	if val != 0xCD {
+		t.Errorf("$FE0000 mirror write: expected 0xCD, got 0x%02X", val)
+	}
+}
+
 func TestGenesisBus_IOVersionRegister(t *testing.T) {
 	bus := makeTestBus()
 	val := bus.ReadCycle(0, m68k.Byte, 0xA10001)

@@ -28,7 +28,7 @@ const (
 //	0xC00004-0xC00007  VDP control port
 //	0xC00008-0xC0000F  VDP HV counter, PSG, debug
 //	0xC00011           PSG write port
-//	0xFF0000-0xFFFFFF  68K main RAM (64KB, mirrored)
+//	0xE00000-0xFFFFFF  68K main RAM (64KB physical, mirrored every $10000)
 type GenesisBus struct {
 	rom    []byte
 	ram    [mainRAMSize]byte
@@ -208,7 +208,7 @@ func (b *GenesisBus) ReadCycle(cycle uint64, s m68k.Size, addr uint32) uint32 {
 			return uint32(val)
 		}
 		return 0
-	case addr >= 0xFF0000:
+	case addr >= 0xE00000:
 		return b.readRAM(s, addr)
 	default:
 		return 0
@@ -298,7 +298,7 @@ func (b *GenesisBus) WriteCycle(cycle uint64, s m68k.Size, addr uint32, value ui
 			b.sramEnabled = v&0x01 != 0
 			b.sramWritable = v&0x02 != 0
 		}
-	case addr >= 0xFF0000:
+	case addr >= 0xE00000:
 		b.writeRAM(s, addr, value)
 	}
 }
