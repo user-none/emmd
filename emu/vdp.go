@@ -76,9 +76,7 @@ type VDP struct {
 	// Framebuffer
 	framebuffer *image.RGBA
 
-	// Scanline rendering line buffers (pre-allocated, reused each scanline)
-	lineBufB   [320]layerPixel
-	lineBufA   [320]layerPixel
+	// Scanline rendering line buffer (pre-allocated, reused each scanline)
 	lineBufSpr [320]layerPixel
 
 	// Mid-scanline CRAM change tracking

@@ -1,37 +1,28 @@
 package emu
 
-// isWindowPixel returns whether the given screen position falls within the window region.
+// windowBounds returns the X range [startX, endX) that is window for a given scanline.
+// Returns (0, 0) for no window, (0, width) for all window.
 // reg 17: H boundary (bit 7 = right side, bits 4:0 = boundary in 16px units)
 // reg 18: V boundary (bit 7 = bottom side, bits 4:0 = boundary in 8px units)
-func (v *VDP) isWindowPixel(screenX, line int) bool {
-	// Horizontal window boundary
+func (v *VDP) windowBounds(line, width int) (startX, endX int) {
 	hReg := v.regs[17]
 	hRight := hReg&0x80 != 0
 	hBoundary := int(hReg&0x1F) * 16
 
-	// Vertical window boundary
 	vReg := v.regs[18]
 	vBottom := vReg&0x80 != 0
 	vBoundary := int(vReg&0x1F) * 8
 
 	// If both boundaries are 0, no window
 	if hBoundary == 0 && vBoundary == 0 {
-		return false
+		return 0, 0
 	}
 
-	// Evaluate each constraint independently
-	var inH, inV bool
 	hActive := hBoundary != 0
 	vActive := vBoundary != 0
 
-	if hActive {
-		if hRight {
-			inH = screenX >= hBoundary
-		} else {
-			inH = screenX < hBoundary
-		}
-	}
-
+	// Determine if this line is inside the V constraint
+	var inV bool
 	if vActive {
 		if vBottom {
 			inV = line >= vBoundary
@@ -40,15 +31,43 @@ func (v *VDP) isWindowPixel(screenX, line int) bool {
 		}
 	}
 
-	// If only one constraint is active, it solely determines the window
+	// If only V is active, it determines everything
 	if !hActive {
-		return inV
+		if inV {
+			return 0, width
+		}
+		return 0, 0
 	}
+
+	// Compute H range
+	var hStart, hEnd int
+	if hRight {
+		hStart = hBoundary
+		hEnd = width
+	} else {
+		hStart = 0
+		hEnd = hBoundary
+	}
+	// Clamp to active width
+	if hStart > width {
+		hStart = width
+	}
+	if hEnd > width {
+		hEnd = width
+	}
+
+	// If only H is active, use the H range directly
 	if !vActive {
-		return inH
+		return hStart, hEnd
 	}
-	// Both active: window covers the union
-	return inH || inV
+
+	// Both active: window covers the union (H OR V).
+	// If V matches, entire line is window.
+	if inV {
+		return 0, width
+	}
+	// V doesn't match, only the H range is window.
+	return hStart, hEnd
 }
 
 // windowNametableBase returns the VRAM base address for the Window nametable.
@@ -66,44 +85,4 @@ func (v *VDP) windowNametableWidth() int {
 		return 64
 	}
 	return 32
-}
-
-// getWindowPixel returns the pixel from the Window nametable at the given screen position.
-// The window has no scrolling - screen position maps directly to nametable cells.
-func (v *VDP) getWindowPixel(screenX, line int) layerPixel {
-	ntBase := v.windowNametableBase()
-	ntWidth := v.windowNametableWidth()
-	tileRows := v.tileRows()
-	tileSz := v.tileSize()
-
-	// Shift and mask split pixel coords into cell index and pixel offset
-	// (equivalent to divmod by 8 and tileRows). See renderPlaneB for details.
-	cellX := screenX >> 3   // screenX / 8
-	pixX := screenX & 7     // screenX % 8
-	tileRowShift := uint(3) // log2(8) = 3
-	if tileRows == 16 {
-		tileRowShift = 4 // log2(16) = 4
-	}
-	cellY := line >> tileRowShift // line / tileRows
-	pixY := line & (tileRows - 1) // line % tileRows
-
-	ntAddr := (ntBase + uint16(cellY*ntWidth+cellX)*2) & 0xFFFF
-	entryHi := v.vram[ntAddr]
-	entryLo := v.vram[(ntAddr+1)&0xFFFF]
-	entry := uint16(entryHi)<<8 | uint16(entryLo)
-
-	priority := entry&0x8000 != 0
-	pal := uint8((entry >> 13) & 0x03)
-	vFlip := entry&0x1000 != 0
-	hFlip := entry&0x0800 != 0
-	tileIndex := entry & 0x07FF
-
-	tileAddr := tileIndex * tileSz
-	colorIdx := v.decodeTilePixel(tileAddr, pixX, pixY, hFlip, vFlip)
-
-	return layerPixel{
-		colorIndex: colorIdx,
-		palette:    pal,
-		priority:   priority,
-	}
 }

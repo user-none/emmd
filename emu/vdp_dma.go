@@ -54,7 +54,8 @@ func (v *VDP) totalScanlines() int {
 // When a DMA spans the boundary between active display and VBlank (or vice
 // versa), the two regions are calculated at their respective throughput rates.
 func (v *VDP) dmaCalcEndCycle(triggerCycle uint64, totalBytes int, mode int) uint64 {
-	currentRate := v.dmaBytesPerLine(mode, v.vBlank)
+	blank := v.vBlank || !v.displayEnabled()
+	currentRate := v.dmaBytesPerLine(mode, blank)
 	if currentRate <= 0 || v.scanlineTotalCycles <= 0 {
 		return triggerCycle
 	}
@@ -63,13 +64,15 @@ func (v *VDP) dmaCalcEndCycle(triggerCycle uint64, totalBytes int, mode int) uin
 	activeHeight := v.ActiveHeight()
 	total := v.totalScanlines()
 
-	// Lines remaining at the current rate before the rate boundary
+	// Lines remaining at the current rate before the rate boundary.
+	// When display is disabled, use blanking rate for both regions
+	// since there is no active/blank transition.
 	var linesAtCurrentRate int
 	var otherBlank bool
 	if v.vBlank {
 		// In VBlank -> boundary is end of frame (line wraps to 0 = active)
 		linesAtCurrentRate = total - v.currentLine
-		otherBlank = false
+		otherBlank = !v.displayEnabled() // blank if display disabled, active otherwise
 	} else {
 		// In active -> boundary is VBlank start
 		linesAtCurrentRate = activeHeight - v.currentLine
@@ -152,7 +155,7 @@ func (v *VDP) executeDMA68K(cycle uint64) {
 	// Per-word cycle offset for mid-scanline CRAM/VSRAM change tracking
 	var cyclesPerWord uint64
 	if v.scanlineTotalCycles > 0 {
-		bytesPerLine := v.dmaBytesPerLine(0, v.vBlank)
+		bytesPerLine := v.dmaBytesPerLine(0, v.vBlank || !v.displayEnabled())
 		wordsPerLine := bytesPerLine / 2
 		if wordsPerLine > 0 {
 			cyclesPerWord = uint64(v.scanlineTotalCycles / wordsPerLine)

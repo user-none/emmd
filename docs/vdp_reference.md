@@ -824,6 +824,10 @@ Bytes transferred per scanline:
 
 VRAM Copy is roughly half-speed because each byte needs both a read and write slot.
 
+"Blank" applies to VBlank and when the display is forcibly disabled via register 1
+bit 6. When the display is disabled, DMA operates at blanking rates during the
+entire frame.
+
 ---
 
 ## 14. VRAM Addressing
@@ -877,7 +881,7 @@ The V counter is internally 9 bits with 8 bits externally readable.
 
 **Interlace normal:** `V7:V1:V8 | H8:H1` (V counter bit 8 replaces bit 0)
 
-**Interlace double-res:** `V6:V0:V7 | H8:H1` (counter doubled, bit 8 to bit 0)
+**Interlace double-res:** `V7:V1:V8 | H8:H1` (counter doubled: V = vCounter*2 + oddField, bit 8 to bit 0)
 
 ### HV Counter Latching
 

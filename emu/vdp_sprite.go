@@ -13,7 +13,7 @@ func (v *VDP) renderSprites(line int) {
 	width := v.activeWidth()
 	tileRows := v.tileRows()
 	tileSz := v.tileSize()
-	// Power-of-2 mask and shift for tile row divmod (see renderPlaneB)
+	// Power-of-2 mask and shift for tile row divmod
 	tileRowMask := tileRows - 1 // 7 or 15
 	tileRowShift := uint(3)     // log2(8) = 3
 	if tileRows == 16 {
@@ -69,11 +69,11 @@ func (v *VDP) renderSprites(line int) {
 			attrLo := v.vram[(entryAddr+5)&0xFFFF]
 			attr := uint16(attrHi)<<8 | uint16(attrLo)
 
-			priority := attr&0x8000 != 0
-			pal := uint8((attr >> 13) & 0x03)
-			vFlip := attr&0x1000 != 0
-			hFlip := attr&0x0800 != 0
-			baseTile := attr & 0x07FF
+			priority := attr&entryPriority != 0
+			pal := uint8((attr >> entryPalShift) & entryPalMask)
+			vFlip := attr&entryVFlip != 0
+			hFlip := attr&entryHFlip != 0
+			baseTile := attr & entryTileMask
 
 			// Byte 6-7: X position (9 bits)
 			xRaw := int(uint16(v.vram[(entryAddr+6)&0xFFFF])<<8|uint16(v.vram[(entryAddr+7)&0xFFFF])) & 0x01FF

@@ -75,116 +75,6 @@ func (v *VDP) fillBackdrop(line int) {
 	}
 }
 
-// compositeScanline composites all layer buffers into the framebuffer for one scanline.
-// When CRAM changes occurred mid-scanline, it renders in segments with the correct
-// CRAM state for each pixel range.
-func (v *VDP) compositeScanline(line int) {
-	if len(v.cramChanges) == 0 {
-		// Fast path: no mid-scanline CRAM changes
-		if v.shadowHighlightMode() {
-			v.compositeScanlineSHRange(line, 0, v.activeWidth())
-		} else {
-			v.compositeScanlineRange(line, 0, v.activeWidth())
-		}
-		v.fillH32Backdrop(line)
-		return
-	}
-
-	// Rewind CRAM to pre-M68K state for this scanline
-	savedCRAM := v.cram
-	v.cram = v.cramSnapshot
-
-	width := v.activeWidth()
-	sh := v.shadowHighlightMode()
-	startX := 0
-
-	for _, c := range v.cramChanges {
-		if c.pixelX > startX && startX < width {
-			endX := c.pixelX
-			if endX > width {
-				endX = width
-			}
-			if sh {
-				v.compositeScanlineSHRange(line, startX, endX)
-			} else {
-				v.compositeScanlineRange(line, startX, endX)
-			}
-			startX = endX
-		}
-		// Apply this CRAM change
-		v.cram[c.addr] = c.hi
-		v.cram[c.addr+1] = c.lo
-	}
-
-	// Render remaining pixels
-	if startX < width {
-		if sh {
-			v.compositeScanlineSHRange(line, startX, width)
-		} else {
-			v.compositeScanlineRange(line, startX, width)
-		}
-	}
-
-	v.fillH32Backdrop(line)
-
-	// Restore final CRAM state (matches what M68K left it as)
-	v.cram = savedCRAM
-}
-
-// compositeScanlineRange composites pixels from startX to endX (exclusive) using current CRAM.
-func (v *VDP) compositeScanlineRange(line, startX, endX int) {
-	pal, idx := v.backdropColor()
-	pix := v.framebuffer.Pix
-	stride := v.framebuffer.Stride
-	offset := line * stride
-
-	for x := startX; x < endX; x++ {
-		spr := v.lineBufSpr[x]
-		a := v.lineBufA[x]
-		b := v.lineBufB[x]
-
-		var cpal, cidx uint8
-
-		// Priority resolution (highest to lowest):
-		// 1. High-priority sprite (non-transparent)
-		// 2. High-priority Plane A/Window (non-transparent)
-		// 3. High-priority Plane B (non-transparent)
-		// 4. Low-priority sprite (non-transparent)
-		// 5. Low-priority Plane A/Window (non-transparent)
-		// 6. Low-priority Plane B (non-transparent)
-		// 7. Backdrop
-		switch {
-		case spr.priority && spr.colorIndex != 0:
-			cpal, cidx = spr.palette, spr.colorIndex
-		case a.priority && a.colorIndex != 0:
-			cpal, cidx = a.palette, a.colorIndex
-		case b.priority && b.colorIndex != 0:
-			cpal, cidx = b.palette, b.colorIndex
-		case !spr.priority && spr.colorIndex != 0:
-			cpal, cidx = spr.palette, spr.colorIndex
-		case !a.priority && a.colorIndex != 0:
-			cpal, cidx = a.palette, a.colorIndex
-		case !b.priority && b.colorIndex != 0:
-			cpal, cidx = b.palette, b.colorIndex
-		default:
-			cpal, cidx = pal, idx
-		}
-
-		r, g, bv := v.cramColor(cpal*16 + cidx)
-
-		// Left column blank: first 8 pixels replaced with backdrop
-		if v.leftColumnBlank() && x < 8 {
-			r, g, bv = v.cramColor(pal*16 + idx)
-		}
-
-		p := offset + x*4
-		pix[p] = r
-		pix[p+1] = g
-		pix[p+2] = bv
-		pix[p+3] = 0xFF
-	}
-}
-
 // fillH32Backdrop fills remaining pixels beyond the active width with backdrop color.
 func (v *VDP) fillH32Backdrop(line int) {
 	width := v.activeWidth()
@@ -243,60 +133,336 @@ const (
 	brightnessHighlight = 2
 )
 
-// compositeScanlineSHRange composites pixels from startX to endX with shadow/highlight mode.
-func (v *VDP) compositeScanlineSHRange(line, startX, endX int) {
-	pal, idx := v.backdropColor()
+// Nametable/sprite attribute entry bit fields.
+// Format: P PAL[1:0] VF HF TILE[10:0]
+const (
+	entryPriority = 0x8000 // bit 15: priority flag
+	entryPalShift = 13     // bits 14:13: palette line (shift count)
+	entryPalMask  = 0x03   // palette mask after shifting
+	entryVFlip    = 0x1000 // bit 12: vertical flip
+	entryHFlip    = 0x0800 // bit 11: horizontal flip
+	entryTileMask = 0x07FF // bits 10:0: tile index
+)
+
+// renderMergedRange renders Plane B, Plane A/Window, and composites into the
+// framebuffer in a single pass for normal (non-SH) mode. Sprites are read from
+// lineBufSpr which must already be rendered. Takes the source scanline, the
+// framebuffer line, and the X range to render.
+func (v *VDP) renderMergedRange(line, fbLine, startX, endX int) {
+	// Backdrop
+	bdPal, bdIdx := v.backdropColor()
+	leftBlank := v.leftColumnBlank()
+
+	// Framebuffer
 	pix := v.framebuffer.Pix
 	stride := v.framebuffer.Stride
-	offset := line * stride
+	offset := fbLine * stride
+
+	// Plane B invariants
+	hCellsB, vCellsB := v.nametableSize()
+	ntBaseB := v.planeBNametable()
+	_, hScrollB := v.hScrollValues(line)
+	tileRows := v.tileRows()
+	tileSz := v.tileSize()
+	ntWidthPxB := hCellsB * 8
+	ntHeightPxB := vCellsB * tileRows
+	hMaskB := ntWidthPxB - 1
+	vMaskB := ntHeightPxB - 1
+	tileRowMask := tileRows - 1
+	tileRowShift := uint(3)
+	if tileRows == 16 {
+		tileRowShift = 4
+	}
+
+	// Plane A invariants
+	hCellsA, vCellsA := v.nametableSize()
+	ntBaseA := v.planeANametable()
+	hScrollA, _ := v.hScrollValues(line)
+	ntWidthPxA := hCellsA * 8
+	ntHeightPxA := vCellsA * tileRows
+	hMaskA := ntWidthPxA - 1
+	vMaskA := ntHeightPxA - 1
+
+	// Window bounds
+	winStartX, winEndX := v.windowBounds(line, endX)
+
+	// Window invariants
+	winNtBase := v.windowNametableBase()
+	winNtWidth := v.windowNametableWidth()
+
+	// V-scroll: hoist out of per-pixel loop.
+	// vsMode 0 = full-screen (constant for entire line)
+	// vsMode 1 = per-2-cell (changes every 16 pixels)
+	vsMode := (v.regs[11] >> 2) & 0x01
+	vScrollA := v.vScrollValue(startX, false)
+	vScrollB := v.vScrollValue(startX, true)
+	prevVSCol := startX >> 4
 
 	for x := startX; x < endX; x++ {
+		// Update vscroll at 2-cell column boundaries (per-2-cell mode)
+		if vsMode != 0 {
+			if col := x >> 4; col != prevVSCol {
+				vScrollA = v.vScrollValue(x, false)
+				vScrollB = v.vScrollValue(x, true)
+				prevVSCol = col
+			}
+		}
+
+		// --- Plane B pixel ---
+		vramXB := (x - hScrollB) & hMaskB
+		vramYB := (line + vScrollB) & vMaskB
+		cellXB := vramXB >> 3
+		cellYB := vramYB >> tileRowShift
+		pixXB := vramXB & 7
+		pixYB := vramYB & tileRowMask
+
+		ntAddrB := (ntBaseB + uint16(cellYB*hCellsB+cellXB)*2) & 0xFFFF
+		entryB := uint16(v.vram[ntAddrB])<<8 | uint16(v.vram[(ntAddrB+1)&0xFFFF])
+		bPri := entryB&entryPriority != 0
+		bPal := uint8((entryB >> entryPalShift) & entryPalMask)
+		bColorIdx := v.decodeTilePixel(
+			(entryB&entryTileMask)*tileSz, pixXB, pixYB,
+			entryB&entryHFlip != 0, entryB&entryVFlip != 0,
+		)
+
+		// --- Plane A / Window pixel ---
+		var aPri bool
+		var aPal, aColorIdx uint8
+
+		if x >= winStartX && x < winEndX {
+			// Window pixel (no scrolling)
+			cellXW := x >> 3
+			pixXW := x & 7
+			cellYW := line >> tileRowShift
+			pixYW := line & tileRowMask
+
+			ntAddrW := (winNtBase + uint16(cellYW*winNtWidth+cellXW)*2) & 0xFFFF
+			entryW := uint16(v.vram[ntAddrW])<<8 | uint16(v.vram[(ntAddrW+1)&0xFFFF])
+			aPri = entryW&entryPriority != 0
+			aPal = uint8((entryW >> entryPalShift) & entryPalMask)
+			aColorIdx = v.decodeTilePixel(
+				(entryW&entryTileMask)*tileSz, pixXW, pixYW,
+				entryW&entryHFlip != 0, entryW&entryVFlip != 0,
+			)
+		} else {
+			// Plane A pixel
+			vramXA := (x - hScrollA) & hMaskA
+			vramYA := (line + vScrollA) & vMaskA
+			cellXA := vramXA >> 3
+			cellYA := vramYA >> tileRowShift
+			pixXA := vramXA & 7
+			pixYA := vramYA & tileRowMask
+
+			ntAddrA := (ntBaseA + uint16(cellYA*hCellsA+cellXA)*2) & 0xFFFF
+			entryA := uint16(v.vram[ntAddrA])<<8 | uint16(v.vram[(ntAddrA+1)&0xFFFF])
+			aPri = entryA&entryPriority != 0
+			aPal = uint8((entryA >> entryPalShift) & entryPalMask)
+			aColorIdx = v.decodeTilePixel(
+				(entryA&entryTileMask)*tileSz, pixXA, pixYA,
+				entryA&entryHFlip != 0, entryA&entryVFlip != 0,
+			)
+		}
+
+		// --- Sprite pixel ---
 		spr := v.lineBufSpr[x]
-		a := v.lineBufA[x]
-		b := v.lineBufB[x]
 
-		// Default brightness is shadow (everything starts shadowed)
+		// --- Priority resolution ---
+		// Priority order (highest to lowest):
+		// 1. High-priority sprite (non-transparent)
+		// 2. High-priority Plane A/Window (non-transparent)
+		// 3. High-priority Plane B (non-transparent)
+		// 4. Low-priority sprite (non-transparent)
+		// 5. Low-priority Plane A/Window (non-transparent)
+		// 6. Low-priority Plane B (non-transparent)
+		// 7. Backdrop
+		var cpal, cidx uint8
+		switch {
+		case spr.priority && spr.colorIndex != 0:
+			cpal, cidx = spr.palette, spr.colorIndex
+		case aPri && aColorIdx != 0:
+			cpal, cidx = aPal, aColorIdx
+		case bPri && bColorIdx != 0:
+			cpal, cidx = bPal, bColorIdx
+		case !spr.priority && spr.colorIndex != 0:
+			cpal, cidx = spr.palette, spr.colorIndex
+		case !aPri && aColorIdx != 0:
+			cpal, cidx = aPal, aColorIdx
+		case !bPri && bColorIdx != 0:
+			cpal, cidx = bPal, bColorIdx
+		default:
+			cpal, cidx = bdPal, bdIdx
+		}
+
+		r, g, bv := v.cramColor(cpal*16 + cidx)
+
+		if leftBlank && x < 8 {
+			r, g, bv = v.cramColor(bdPal*16 + bdIdx)
+		}
+
+		p := offset + x*4
+		pix[p] = r
+		pix[p+1] = g
+		pix[p+2] = bv
+		pix[p+3] = 0xFF
+	}
+}
+
+// renderMergedSHRange renders Plane B, Plane A/Window, and composites into the
+// framebuffer in a single pass with shadow/highlight mode. Sprites are read from
+// lineBufSpr which must already be rendered.
+func (v *VDP) renderMergedSHRange(line, fbLine, startX, endX int) {
+	bdPal, bdIdx := v.backdropColor()
+	leftBlank := v.leftColumnBlank()
+
+	pix := v.framebuffer.Pix
+	stride := v.framebuffer.Stride
+	offset := fbLine * stride
+
+	// Plane B invariants
+	hCellsB, vCellsB := v.nametableSize()
+	ntBaseB := v.planeBNametable()
+	_, hScrollB := v.hScrollValues(line)
+	tileRows := v.tileRows()
+	tileSz := v.tileSize()
+	ntWidthPxB := hCellsB * 8
+	ntHeightPxB := vCellsB * tileRows
+	hMaskB := ntWidthPxB - 1
+	vMaskB := ntHeightPxB - 1
+	tileRowMask := tileRows - 1
+	tileRowShift := uint(3)
+	if tileRows == 16 {
+		tileRowShift = 4
+	}
+
+	// Plane A invariants
+	hCellsA, vCellsA := v.nametableSize()
+	ntBaseA := v.planeANametable()
+	hScrollA, _ := v.hScrollValues(line)
+	ntWidthPxA := hCellsA * 8
+	ntHeightPxA := vCellsA * tileRows
+	hMaskA := ntWidthPxA - 1
+	vMaskA := ntHeightPxA - 1
+
+	// Window bounds
+	winStartX, winEndX := v.windowBounds(line, endX)
+
+	// Window invariants
+	winNtBase := v.windowNametableBase()
+	winNtWidth := v.windowNametableWidth()
+
+	// V-scroll: hoist out of per-pixel loop.
+	vsMode := (v.regs[11] >> 2) & 0x01
+	vScrollA := v.vScrollValue(startX, false)
+	vScrollB := v.vScrollValue(startX, true)
+	prevVSCol := startX >> 4
+
+	for x := startX; x < endX; x++ {
+		// Update vscroll at 2-cell column boundaries (per-2-cell mode)
+		if vsMode != 0 {
+			if col := x >> 4; col != prevVSCol {
+				vScrollA = v.vScrollValue(x, false)
+				vScrollB = v.vScrollValue(x, true)
+				prevVSCol = col
+			}
+		}
+
+		// --- Plane B pixel ---
+		vramXB := (x - hScrollB) & hMaskB
+		vramYB := (line + vScrollB) & vMaskB
+		cellXB := vramXB >> 3
+		cellYB := vramYB >> tileRowShift
+		pixXB := vramXB & 7
+		pixYB := vramYB & tileRowMask
+
+		ntAddrB := (ntBaseB + uint16(cellYB*hCellsB+cellXB)*2) & 0xFFFF
+		entryB := uint16(v.vram[ntAddrB])<<8 | uint16(v.vram[(ntAddrB+1)&0xFFFF])
+		bPri := entryB&entryPriority != 0
+		bPal := uint8((entryB >> entryPalShift) & entryPalMask)
+		bColorIdx := v.decodeTilePixel(
+			(entryB&entryTileMask)*tileSz, pixXB, pixYB,
+			entryB&entryHFlip != 0, entryB&entryVFlip != 0,
+		)
+
+		// --- Plane A / Window pixel ---
+		var aPri bool
+		var aPal, aColorIdx uint8
+
+		if x >= winStartX && x < winEndX {
+			cellXW := x >> 3
+			pixXW := x & 7
+			cellYW := line >> tileRowShift
+			pixYW := line & tileRowMask
+
+			ntAddrW := (winNtBase + uint16(cellYW*winNtWidth+cellXW)*2) & 0xFFFF
+			entryW := uint16(v.vram[ntAddrW])<<8 | uint16(v.vram[(ntAddrW+1)&0xFFFF])
+			aPri = entryW&entryPriority != 0
+			aPal = uint8((entryW >> entryPalShift) & entryPalMask)
+			aColorIdx = v.decodeTilePixel(
+				(entryW&entryTileMask)*tileSz, pixXW, pixYW,
+				entryW&entryHFlip != 0, entryW&entryVFlip != 0,
+			)
+		} else {
+			vramXA := (x - hScrollA) & hMaskA
+			vramYA := (line + vScrollA) & vMaskA
+			cellXA := vramXA >> 3
+			cellYA := vramYA >> tileRowShift
+			pixXA := vramXA & 7
+			pixYA := vramYA & tileRowMask
+
+			ntAddrA := (ntBaseA + uint16(cellYA*hCellsA+cellXA)*2) & 0xFFFF
+			entryA := uint16(v.vram[ntAddrA])<<8 | uint16(v.vram[(ntAddrA+1)&0xFFFF])
+			aPri = entryA&entryPriority != 0
+			aPal = uint8((entryA >> entryPalShift) & entryPalMask)
+			aColorIdx = v.decodeTilePixel(
+				(entryA&entryTileMask)*tileSz, pixXA, pixYA,
+				entryA&entryHFlip != 0, entryA&entryVFlip != 0,
+			)
+		}
+
+		// --- Sprite pixel ---
+		spr := v.lineBufSpr[x]
+
+		// --- Shadow/Highlight priority resolution ---
+		// Same priority order as normal mode. All pixels default to shadow
+		// brightness. High-priority layers promote to normal brightness.
+		// Palette 3 low-priority sprites with color 14 or 15 are operators:
+		// they modify the underlying pixel's brightness without displaying.
 		brightness := brightnessShadow
-
-		// Determine the visible color using standard priority resolution,
-		// but also track brightness modifications from sprite operators.
 		var cpal, cidx uint8
 		sprIsOperator := false
 
-		// Check if sprite is a palette 3 special operator (low-priority only)
+		// Palette 3 sprite operator check (color 14 = highlight, 15 = shadow)
 		if !spr.priority && spr.colorIndex != 0 && spr.palette == 3 {
 			if spr.colorIndex == 14 || spr.colorIndex == 15 {
 				sprIsOperator = true
 			}
 		}
 
-		// Standard priority resolution (same order as normal compositing)
 		switch {
 		case spr.priority && spr.colorIndex != 0:
 			// High-priority sprite: always normal brightness
 			cpal, cidx = spr.palette, spr.colorIndex
 			brightness = brightnessNormal
-		case a.priority && a.colorIndex != 0:
-			// High-priority plane A: normal brightness
-			cpal, cidx = a.palette, a.colorIndex
+		case aPri && aColorIdx != 0:
+			// High-priority Plane A/Window: normal brightness
+			cpal, cidx = aPal, aColorIdx
 			brightness = brightnessNormal
-		case b.priority && b.colorIndex != 0:
-			// High-priority plane B: normal brightness
-			cpal, cidx = b.palette, b.colorIndex
+		case bPri && bColorIdx != 0:
+			// High-priority Plane B: normal brightness
+			cpal, cidx = bPal, bColorIdx
 			brightness = brightnessNormal
 		case !spr.priority && spr.colorIndex != 0:
 			if sprIsOperator {
-				// Operator sprite: doesn't display itself, modifies underlying pixel
-				// Fall through to find the underlying plane pixel
+				// Operator: select underlying plane/backdrop pixel,
+				// then apply brightness modification
 				switch {
-				case a.colorIndex != 0:
-					cpal, cidx = a.palette, a.colorIndex
-				case b.colorIndex != 0:
-					cpal, cidx = b.palette, b.colorIndex
+				case aColorIdx != 0:
+					cpal, cidx = aPal, aColorIdx
+				case bColorIdx != 0:
+					cpal, cidx = bPal, bColorIdx
 				default:
-					cpal, cidx = pal, idx
+					cpal, cidx = bdPal, bdIdx
 				}
-				// Apply operator brightness adjustment
 				if spr.colorIndex == 14 {
 					brightness = brightnessHighlight
 				} else {
@@ -307,20 +473,19 @@ func (v *VDP) compositeScanlineSHRange(line, startX, endX int) {
 				cpal, cidx = spr.palette, spr.colorIndex
 				brightness = brightnessNormal
 			} else {
-				// Other low-priority sprites: remain at shadow
+				// Other low-priority sprites: remain at shadow brightness
 				cpal, cidx = spr.palette, spr.colorIndex
 			}
-		case a.colorIndex != 0:
-			// Low-priority plane A: remains at shadow
-			cpal, cidx = a.palette, a.colorIndex
-		case b.colorIndex != 0:
-			// Low-priority plane B: remains at shadow
-			cpal, cidx = b.palette, b.colorIndex
+		case aColorIdx != 0:
+			// Low-priority Plane A/Window: remains at shadow brightness
+			cpal, cidx = aPal, aColorIdx
+		case bColorIdx != 0:
+			// Low-priority Plane B: remains at shadow brightness
+			cpal, cidx = bPal, bColorIdx
 		default:
-			cpal, cidx = pal, idx
+			cpal, cidx = bdPal, bdIdx
 		}
 
-		// Apply brightness to get final RGB
 		var r, g, bv uint8
 		switch brightness {
 		case brightnessShadow:
@@ -331,9 +496,8 @@ func (v *VDP) compositeScanlineSHRange(line, startX, endX int) {
 			r, g, bv = v.cramColorHighlight(cpal*16 + cidx)
 		}
 
-		// Left column blank: first 8 pixels replaced with backdrop
-		if v.leftColumnBlank() && x < 8 {
-			r, g, bv = v.cramColorShadow(pal*16 + idx)
+		if leftBlank && x < 8 {
+			r, g, bv = v.cramColorShadow(bdPal*16 + bdIdx)
 		}
 
 		p := offset + x*4
@@ -341,6 +505,75 @@ func (v *VDP) compositeScanlineSHRange(line, startX, endX int) {
 		pix[p+1] = g
 		pix[p+2] = bv
 		pix[p+3] = 0xFF
+	}
+}
+
+// renderMergedScanline is the merged rendering entry point used by RenderScanline.
+// It clears only the sprite buffer, renders sprites, then performs plane rendering
+// and compositing in a single pass.
+func (v *VDP) renderMergedScanline(line, fbLine int) {
+	width := v.activeWidth()
+
+	// Only clear sprite buffer (planes are computed inline)
+	for i := 0; i < width; i++ {
+		v.lineBufSpr[i] = layerPixel{}
+	}
+
+	// Render sprites into lineBufSpr (unchanged - sprites traverse SAT in link order)
+	v.renderSprites(line)
+
+	if len(v.cramChanges) == 0 {
+		// Fast path: no mid-scanline CRAM changes
+		if v.shadowHighlightMode() {
+			v.renderMergedSHRange(line, fbLine, 0, width)
+		} else {
+			v.renderMergedRange(line, fbLine, 0, width)
+		}
+		v.fillH32Backdrop(fbLine)
+
+		if width < ScreenWidth {
+			v.stretchScanline(fbLine, width)
+		}
+		return
+	}
+
+	// Slow path: mid-scanline CRAM changes - render in segments
+	savedCRAM := v.cram
+	v.cram = v.cramSnapshot
+
+	sh := v.shadowHighlightMode()
+	startX := 0
+
+	for _, c := range v.cramChanges {
+		if c.pixelX > startX && startX < width {
+			endX := c.pixelX
+			if endX > width {
+				endX = width
+			}
+			if sh {
+				v.renderMergedSHRange(line, fbLine, startX, endX)
+			} else {
+				v.renderMergedRange(line, fbLine, startX, endX)
+			}
+			startX = endX
+		}
+		v.cram[c.addr] = c.hi
+		v.cram[c.addr+1] = c.lo
+	}
+
+	if startX < width {
+		if sh {
+			v.renderMergedSHRange(line, fbLine, startX, width)
+		} else {
+			v.renderMergedRange(line, fbLine, startX, width)
+		}
+	}
+
+	v.fillH32Backdrop(fbLine)
+	v.cram = savedCRAM
+
+	if width < ScreenWidth {
+		v.stretchScanline(fbLine, width)
 	}
 }
 
@@ -362,27 +595,5 @@ func (v *VDP) RenderScanline(line int) {
 		return
 	}
 
-	width := v.activeWidth()
-
-	// Clear line buffers
-	for i := 0; i < width; i++ {
-		v.lineBufB[i] = layerPixel{}
-		v.lineBufA[i] = layerPixel{}
-		v.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Render layers
-	v.renderPlaneB(line)
-	v.renderPlaneAAndWindow(line)
-	v.renderSprites(line)
-
-	// Composite all layers into framebuffer
-	v.compositeScanline(fbLine)
-
-	// In H32 mode, stretch 256 active pixels to fill the 320-pixel framebuffer.
-	// On real hardware, H32's slower pixel clock makes each pixel physically wider,
-	// filling the same CRT width as H40's 320 pixels.
-	if width < ScreenWidth {
-		v.stretchScanline(fbLine, width)
-	}
+	v.renderMergedScanline(line, fbLine)
 }

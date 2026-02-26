@@ -139,135 +139,6 @@ func TestVDP_RenderScanline_OutOfBounds(t *testing.T) {
 	vdp.RenderScanline(300)
 }
 
-// --- Compositing tests ---
-
-func TestVDP_Composite_BackdropOnly(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81 // H40
-	// Backdrop = palette 0, color 1
-	vdp.regs[7] = 0x01
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E // pure red
-
-	// Clear line buffers (all transparent)
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected red backdrop, got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_Composite_HighPriSpriteOverHighPriPlaneA(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81
-
-	// Set CRAM: color 1 = red, color 17 = green (palette 1, index 1)
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E // color 1 = red
-	vdp.cram[34] = 0x00
-	vdp.cram[35] = 0xE0 // color 17 = green
-
-	// Pixel 0: high-pri sprite (palette 0, color 1) vs high-pri plane A (palette 1, color 1)
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 1, palette: 0, priority: true}
-	vdp.lineBufA[0] = layerPixel{colorIndex: 1, palette: 1, priority: true}
-	vdp.lineBufB[0] = layerPixel{}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Sprite should win (priority level 1 > level 2)
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected red (sprite wins), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_Composite_HighPriPlaneBOverLowPriSprite(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81
-
-	// Color 1 = red (for sprite), color 17 = green (for plane B)
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-	vdp.cram[34] = 0x00
-	vdp.cram[35] = 0xE0
-
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 1, palette: 0, priority: false} // low-pri sprite
-	vdp.lineBufA[0] = layerPixel{}
-	vdp.lineBufB[0] = layerPixel{colorIndex: 1, palette: 1, priority: true} // high-pri plane B
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// High-pri plane B (level 3) beats low-pri sprite (level 4)
-	if pix[0] != 0 || pix[1] != 255 || pix[2] != 0 {
-		t.Errorf("expected green (plane B wins), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_Composite_LowPriSpriteFallthrough(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81
-
-	// Color 1 = red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	// Only a low-pri sprite, no planes
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-	vdp.lineBufA[0] = layerPixel{}
-	vdp.lineBufB[0] = layerPixel{}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected red (low-pri sprite), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_Composite_H32Mode(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x00 // H32 mode (256px)
-
-	// Backdrop = palette 0, color 1 = red
-	vdp.regs[7] = 0x01
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	// Color 17 = green (palette 1, color 1)
-	vdp.cram[34] = 0x00
-	vdp.cram[35] = 0xE0
-
-	// Put a sprite pixel at x=255 (last active pixel in H32)
-	for i := 0; i < 320; i++ {
-		vdp.lineBufSpr[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufB[i] = layerPixel{}
-	}
-	vdp.lineBufSpr[255] = layerPixel{colorIndex: 1, palette: 1, priority: false}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Pixel 255 should be green (sprite)
-	p := 255 * 4
-	if pix[p] != 0 || pix[p+1] != 255 || pix[p+2] != 0 {
-		t.Errorf("pixel 255: expected green, got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
-	}
-	// Pixel 256 should be backdrop (red) since it's beyond H32 active area
-	p = 256 * 4
-	if pix[p] != 255 || pix[p+1] != 0 || pix[p+2] != 0 {
-		t.Errorf("pixel 256: expected red (backdrop), got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
-	}
-}
-
 // TestVDP_RenderScanline_FullPipeline simulates realistic game VDP initialization
 // and verifies the full rendering pipeline produces non-black visible output.
 func TestVDP_RenderScanline_FullPipeline(t *testing.T) {
@@ -370,44 +241,6 @@ func TestVDP_RenderScanline_FullPipeline(t *testing.T) {
 	}
 }
 
-func TestVDP_Composite_LeftColumnBlank(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81
-	vdp.regs[0] = 0x20 // left column blank
-
-	// Backdrop = palette 0, color 2 -> green
-	vdp.regs[7] = 0x02
-	vdp.cram[4] = 0x00
-	vdp.cram[5] = 0xE0 // color 2 = green
-
-	// Color 1 = red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	// Plane A with content in first 8 pixels
-	for i := 0; i < 320; i++ {
-		vdp.lineBufA[i] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// First 8 pixels should be backdrop (green), not plane A (red)
-	for x := 0; x < 8; x++ {
-		p := x * 4
-		if pix[p] != 0 || pix[p+1] != 255 || pix[p+2] != 0 {
-			t.Errorf("pixel %d: expected green (backdrop), got (%d,%d,%d)", x, pix[p], pix[p+1], pix[p+2])
-		}
-	}
-	// Pixel 8 should be plane A (red)
-	p := 8 * 4
-	if pix[p] != 255 || pix[p+1] != 0 || pix[p+2] != 0 {
-		t.Errorf("pixel 8: expected red (plane A), got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
-	}
-}
-
 // --- Shadow/Highlight tests ---
 
 func TestVDP_ShadowHighlight_ModeDetection(t *testing.T) {
@@ -452,411 +285,173 @@ func TestVDP_CRAMColor_Highlight(t *testing.T) {
 	}
 }
 
-func TestVDP_ShadowHighlight_DefaultShadow(t *testing.T) {
+// --- Merged path integration tests ---
+
+// TestVDP_RenderScanline_WindowRendering verifies window rendering through the
+// full RenderScanline merged path. Sets up a window region covering the left
+// half of the screen and verifies window tile content appears correctly while
+// plane A content appears outside the window.
+func TestVDP_RenderScanline_WindowRendering(t *testing.T) {
 	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89 // H40 + SH mode
-	// Backdrop = palette 0, color 1 (white)
-	vdp.regs[7] = 0x01
-	vdp.cram[2] = 0x0E
-	vdp.cram[3] = 0xEE
 
-	// All layers transparent -> backdrop at shadow brightness
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Shadow of white = 127
-	if pix[0] != 127 || pix[1] != 127 || pix[2] != 127 {
-		t.Errorf("expected shadow white (127,127,127), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_ShadowHighlight_HighPriPlaneNormal(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89 // H40 + SH mode
-	vdp.regs[7] = 0x00  // backdrop = color 0
-
-	// Color 1 = pure red (palette 0)
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// High-priority plane A pixel
-	vdp.lineBufA[0] = layerPixel{colorIndex: 1, palette: 0, priority: true}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// High-pri plane = normal brightness = full red (255,0,0)
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected normal red (255,0,0), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_ShadowHighlight_LowPriPlaneShadow(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89
-	vdp.regs[7] = 0x00
-
-	// Color 1 = pure red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Low-priority plane A pixel
-	vdp.lineBufA[0] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Low-pri plane = shadow brightness = half red (127,0,0)
-	if pix[0] != 127 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected shadow red (127,0,0), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_ShadowHighlight_HighlightOperator(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89
-	vdp.regs[7] = 0x00
-
-	// Color 1 (palette 0) = pure green for underlying plane
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0xE0
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Low-priority plane A underneath
-	vdp.lineBufA[0] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-	// Sprite: palette 3, color 14 = highlight operator (low priority)
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 14, palette: 3, priority: false}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Highlight of green: 255 + 128 = 383 -> clamped to 255 -> (0, 255, 0)
-	// Wait: green = 255, highlight = 255 + 128 = 383 -> 255
-	r, g, b := pix[0], pix[1], pix[2]
-	hr, hg, hb := vdp.cramColorHighlight(1)
-	if r != hr || g != hg || b != hb {
-		t.Errorf("expected highlight green (%d,%d,%d), got (%d,%d,%d)", hr, hg, hb, r, g, b)
-	}
-}
-
-func TestVDP_ShadowHighlight_ShadowOperator(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89
-	vdp.regs[7] = 0x00
-
-	// Color 1 = pure blue for underlying plane
-	vdp.cram[2] = 0x0E
-	vdp.cram[3] = 0x00
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Low-priority plane A underneath
-	vdp.lineBufA[0] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-	// Sprite: palette 3, color 15 = shadow operator (low priority)
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 15, palette: 3, priority: false}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Shadow of blue = half brightness
-	sr, sg, sb := vdp.cramColorShadow(1)
-	if pix[0] != sr || pix[1] != sg || pix[2] != sb {
-		t.Errorf("expected shadow blue (%d,%d,%d), got (%d,%d,%d)", sr, sg, sb, pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_ShadowHighlight_Palette3NormalSprite(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89
-	vdp.regs[7] = 0x00
-
-	// Palette 3, color 5 = CRAM index 53
-	vdp.cram[106] = 0x00
-	vdp.cram[107] = 0x0E // pure red
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Low-priority sprite with palette 3, color 5 (not operator)
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 5, palette: 3, priority: false}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Palette 3 non-operator: normal brightness
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected normal red (255,0,0), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_ShadowHighlight_HighPriSpriteNormal(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x89
-	vdp.regs[7] = 0x00
-
-	// Color 1 = pure red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// High-priority sprite: always normal brightness
-	vdp.lineBufSpr[0] = layerPixel{colorIndex: 1, palette: 0, priority: true}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected normal red (255,0,0), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_ShadowHighlight_DisabledNoEffect(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81 // H40 but NO SH mode (bit 3 = 0)
-	vdp.regs[7] = 0x00
-
-	// Color 1 = pure red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Low-priority plane A pixel
-	vdp.lineBufA[0] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Without SH mode, low-pri plane is normal brightness
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected normal red (255,0,0) with SH disabled, got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-// --- Mid-scanline CRAM change tests ---
-
-func TestVDP_MidScanlineCRAM_NoChamges(t *testing.T) {
-	vdp := makeTestVDP()
+	vdp.regs[1] = 0x64  // Enable display + DMA + V-int
 	vdp.regs[12] = 0x81 // H40
-	// Backdrop = palette 0, color 1 = red
-	vdp.regs[7] = 0x01
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
+	vdp.regs[16] = 0x01 // 64x32 nametable
 
-	// No CRAM changes (fast path)
-	vdp.cramChanges = nil
+	// Plane A nametable at 0xC000
+	vdp.regs[2] = 0x30
+	// Plane B nametable at 0xE000
+	vdp.regs[4] = 0x07
+	// H-scroll table at 0xFC00
+	vdp.regs[13] = 0x3F
+	// Sprite table at 0xD800
+	vdp.regs[5] = 0x6C
+	// Backdrop = palette 0, color 2 (blue)
+	vdp.regs[7] = 0x02
 
-	for i := 0; i < 320; i++ {
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
+	// Window nametable at 0x6000 (H40: reg 3 = 0x18)
+	vdp.regs[3] = 0x18
 
-	vdp.compositeScanline(0)
+	// Window covers left 10 cells (160 pixels): hRight=0, boundary=10
+	vdp.regs[17] = 0x0A // left side, boundary at 10*16 = 160px
+	vdp.regs[18] = 0x00 // no V boundary
 
-	pix := vdp.framebuffer.Pix
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("expected red backdrop, got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-}
-
-func TestVDP_MidScanlineCRAM_SingleChange(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81 // H40
-
-	// All pixels from plane A, palette 0, color 1
-	for i := 0; i < 320; i++ {
-		vdp.lineBufA[i] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Initial CRAM: color 1 = red (0x000E)
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-
-	// Snapshot CRAM (as if BeginScanline was called)
-	vdp.cramSnapshot = vdp.cram
-
-	// At pixel 160, change color 1 to green (0x00E0)
-	vdp.cramChanges = []cramChange{
-		{pixelX: 160, addr: 2, hi: 0x00, lo: 0xE0},
-	}
-	// Update live CRAM to final state (green)
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0xE0
-
-	vdp.compositeScanline(0)
-
-	pix := vdp.framebuffer.Pix
-	// Pixel 0 should be red (pre-change CRAM)
-	if pix[0] != 255 || pix[1] != 0 || pix[2] != 0 {
-		t.Errorf("pixel 0: expected red (255,0,0), got (%d,%d,%d)", pix[0], pix[1], pix[2])
-	}
-	// Pixel 160 should be green (post-change CRAM)
-	p := 160 * 4
-	if pix[p] != 0 || pix[p+1] != 255 || pix[p+2] != 0 {
-		t.Errorf("pixel 160: expected green (0,255,0), got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
-	}
-	// Pixel 319 should still be green
-	p = 319 * 4
-	if pix[p] != 0 || pix[p+1] != 255 || pix[p+2] != 0 {
-		t.Errorf("pixel 319: expected green (0,255,0), got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
-	}
-}
-
-func TestVDP_MidScanlineCRAM_MultipleChanges(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81 // H40
-
-	// All pixels from plane A, palette 0, color 1
-	for i := 0; i < 320; i++ {
-		vdp.lineBufA[i] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Initial CRAM: color 1 = red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-	vdp.cramSnapshot = vdp.cram
-
-	// Change at pixel 100: red -> green
-	// Change at pixel 200: green -> blue
-	vdp.cramChanges = []cramChange{
-		{pixelX: 100, addr: 2, hi: 0x00, lo: 0xE0},
-		{pixelX: 200, addr: 2, hi: 0x0E, lo: 0x00},
-	}
-	// Final state is blue
+	// CRAM setup
+	vdp.cram[0] = 0x00
+	vdp.cram[1] = 0x00 // color 0 = black (transparent)
 	vdp.cram[2] = 0x0E
-	vdp.cram[3] = 0x00
+	vdp.cram[3] = 0xEE // color 1 = white
+	vdp.cram[4] = 0x0E
+	vdp.cram[5] = 0x00 // color 2 = blue (backdrop)
+	vdp.cram[6] = 0x00
+	vdp.cram[7] = 0x0E // color 3 = red
 
-	vdp.compositeScanline(0)
+	// Tile 1 at VRAM 32: all color 1 (white) - for window
+	for row := 0; row < 8; row++ {
+		base := 32 + row*4
+		vdp.vram[base] = 0x11
+		vdp.vram[base+1] = 0x11
+		vdp.vram[base+2] = 0x11
+		vdp.vram[base+3] = 0x11
+	}
+
+	// Tile 2 at VRAM 64: all color 3 (red) - for plane A
+	for row := 0; row < 8; row++ {
+		base := 64 + row*4
+		vdp.vram[base] = 0x33
+		vdp.vram[base+1] = 0x33
+		vdp.vram[base+2] = 0x33
+		vdp.vram[base+3] = 0x33
+	}
+
+	// Window nametable at 0x6000: cell (0,0) = tile 1 (white)
+	// Window nametable width in H40 is 64 cells
+	vdp.vram[0x6000] = 0x00
+	vdp.vram[0x6001] = 0x01
+
+	// Plane A nametable at 0xC000: cell (20,0) = tile 2 (red)
+	// Cell 20 is at offset 20*2 = 40 bytes from base
+	vdp.vram[0xC000+40] = 0x00
+	vdp.vram[0xC000+41] = 0x02
+
+	vdp.RenderScanline(0)
 
 	pix := vdp.framebuffer.Pix
-	// Pixel 50: red
-	p := 50 * 4
-	if pix[p] != 255 || pix[p+1] != 0 || pix[p+2] != 0 {
-		t.Errorf("pixel 50: expected red, got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
+
+	// Pixels 0-7 should be white (window tile 1)
+	for x := 0; x < 8; x++ {
+		p := x * 4
+		if pix[p] != 255 || pix[p+1] != 255 || pix[p+2] != 255 {
+			t.Errorf("pixel %d: expected white (window), got (%d,%d,%d)", x, pix[p], pix[p+1], pix[p+2])
+		}
 	}
-	// Pixel 150: green
-	p = 150 * 4
-	if pix[p] != 0 || pix[p+1] != 255 || pix[p+2] != 0 {
-		t.Errorf("pixel 150: expected green, got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
+
+	// Pixels 160-167 should be red (plane A tile 2, outside window)
+	for x := 160; x < 168; x++ {
+		p := x * 4
+		if pix[p] != 255 || pix[p+1] != 0 || pix[p+2] != 0 {
+			t.Errorf("pixel %d: expected red (plane A), got (%d,%d,%d)", x, pix[p], pix[p+1], pix[p+2])
+		}
 	}
-	// Pixel 250: blue
-	p = 250 * 4
+
+	// Pixel 170 (outside window, no plane A tile) should be backdrop (blue)
+	p := 170 * 4
 	if pix[p] != 0 || pix[p+1] != 0 || pix[p+2] != 255 {
-		t.Errorf("pixel 250: expected blue, got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
+		t.Errorf("pixel 170: expected blue (backdrop), got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
 	}
 }
 
-func TestVDP_MidScanlineCRAM_RestoresFinalState(t *testing.T) {
+// TestVDP_RenderScanline_ShadowHighlight verifies shadow/highlight rendering
+// through the full RenderScanline merged path.
+func TestVDP_RenderScanline_ShadowHighlight(t *testing.T) {
 	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81
 
-	for i := 0; i < 320; i++ {
-		vdp.lineBufA[i] = layerPixel{colorIndex: 1, palette: 0, priority: false}
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
+	vdp.regs[1] = 0x64  // Enable display
+	vdp.regs[12] = 0x89 // H40 + shadow/highlight mode
+	vdp.regs[16] = 0x01 // 64x32 nametable
 
-	// Initial: red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-	vdp.cramSnapshot = vdp.cram
+	// Plane A nametable at 0xC000
+	vdp.regs[2] = 0x30
+	// Plane B nametable at 0xE000
+	vdp.regs[4] = 0x07
+	// H-scroll table at 0xFC00
+	vdp.regs[13] = 0x3F
+	// Sprite table at 0xD800
+	vdp.regs[5] = 0x6C
+	// Backdrop = palette 0, color 2
+	vdp.regs[7] = 0x02
 
-	// Change to green at pixel 160
-	vdp.cramChanges = []cramChange{
-		{pixelX: 160, addr: 2, hi: 0x00, lo: 0xE0},
-	}
-	// Final CRAM state = green
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0xE0
-
-	vdp.compositeScanline(0)
-
-	// After compositing, CRAM should be restored to the final (green) state
-	if vdp.cram[2] != 0x00 || vdp.cram[3] != 0xE0 {
-		t.Errorf("CRAM should be restored to final state, got [2]=0x%02X [3]=0x%02X", vdp.cram[2], vdp.cram[3])
-	}
-}
-
-func TestVDP_MidScanlineCRAM_BackdropChange(t *testing.T) {
-	vdp := makeTestVDP()
-	vdp.regs[12] = 0x81
-	// Backdrop = palette 0, color 1
-	vdp.regs[7] = 0x01
-
-	// All layers transparent -> backdrop used
-	for i := 0; i < 320; i++ {
-		vdp.lineBufA[i] = layerPixel{}
-		vdp.lineBufB[i] = layerPixel{}
-		vdp.lineBufSpr[i] = layerPixel{}
-	}
-
-	// Initial: backdrop is red
-	vdp.cram[2] = 0x00
-	vdp.cram[3] = 0x0E
-	vdp.cramSnapshot = vdp.cram
-
-	// At pixel 160, change backdrop color to blue
-	vdp.cramChanges = []cramChange{
-		{pixelX: 160, addr: 2, hi: 0x0E, lo: 0x00},
-	}
+	// CRAM setup
+	vdp.cram[0] = 0x00
+	vdp.cram[1] = 0x00 // color 0 = black (transparent)
 	vdp.cram[2] = 0x0E
-	vdp.cram[3] = 0x00
+	vdp.cram[3] = 0xEE // color 1 = white
+	vdp.cram[4] = 0x0E
+	vdp.cram[5] = 0x00 // color 2 = blue (backdrop)
 
-	vdp.compositeScanline(0)
+	// Tile 1 at VRAM 32: all color 1 (white)
+	for row := 0; row < 8; row++ {
+		base := 32 + row*4
+		vdp.vram[base] = 0x11
+		vdp.vram[base+1] = 0x11
+		vdp.vram[base+2] = 0x11
+		vdp.vram[base+3] = 0x11
+	}
+
+	// Plane A: cell (0,0) = tile 1, high priority
+	// Entry = 1_00_0_0_00000000001 = 0x8001
+	vdp.vram[0xC000] = 0x80
+	vdp.vram[0xC001] = 0x01
+
+	// Plane A: cell (1,0) = tile 1, low priority
+	// Entry = 0_00_0_0_00000000001 = 0x0001
+	vdp.vram[0xC002] = 0x00
+	vdp.vram[0xC003] = 0x01
+
+	vdp.RenderScanline(0)
 
 	pix := vdp.framebuffer.Pix
-	// Pixel 80: red backdrop
-	p := 80 * 4
-	if pix[p] != 255 || pix[p+1] != 0 || pix[p+2] != 0 {
-		t.Errorf("pixel 80: expected red backdrop, got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
+
+	// Pixels 0-7: high-priority plane A -> normal brightness white (255,255,255)
+	for x := 0; x < 8; x++ {
+		p := x * 4
+		if pix[p] != 255 || pix[p+1] != 255 || pix[p+2] != 255 {
+			t.Errorf("pixel %d: expected normal white (255,255,255), got (%d,%d,%d)", x, pix[p], pix[p+1], pix[p+2])
+		}
 	}
-	// Pixel 200: blue backdrop
-	p = 200 * 4
-	if pix[p] != 0 || pix[p+1] != 0 || pix[p+2] != 255 {
-		t.Errorf("pixel 200: expected blue backdrop, got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
+
+	// Pixels 8-15: low-priority plane A -> shadow brightness white (127,127,127)
+	for x := 8; x < 16; x++ {
+		p := x * 4
+		if pix[p] != 127 || pix[p+1] != 127 || pix[p+2] != 127 {
+			t.Errorf("pixel %d: expected shadow white (127,127,127), got (%d,%d,%d)", x, pix[p], pix[p+1], pix[p+2])
+		}
+	}
+
+	// Pixel 16+: backdrop at shadow brightness
+	// Blue = (0,0,255), shadow = (0,0,127)
+	p := 16 * 4
+	if pix[p] != 0 || pix[p+1] != 0 || pix[p+2] != 127 {
+		t.Errorf("pixel 16: expected shadow blue (0,0,127), got (%d,%d,%d)", pix[p], pix[p+1], pix[p+2])
 	}
 }

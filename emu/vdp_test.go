@@ -2059,8 +2059,8 @@ func TestVDP_DMA68K_BusyDuration(t *testing.T) {
 	triggerCycle := uint64(1000)
 	vdp.BeginScanline(triggerCycle, 488)
 
-	// Enable DMA
-	vdp.WriteControl(triggerCycle, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(triggerCycle, 0x8154)
 	vdp.WriteControl(triggerCycle, 0x8F02)
 	// DMA length = 9 words -> 18 bytes; H40 active = 18 bytes/line = 488 cycles
 	vdp.WriteControl(triggerCycle, 0x9309)
@@ -2102,8 +2102,8 @@ func TestVDP_DMAFill_BusyDuration(t *testing.T) {
 	triggerCycle := uint64(1000)
 	vdp.BeginScanline(triggerCycle, 488)
 
-	// Enable DMA
-	vdp.WriteControl(triggerCycle, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(triggerCycle, 0x8154)
 	vdp.WriteControl(triggerCycle, 0x8F01)
 	// DMA length = 17 bytes; H40 active fill = 17 bytes/line = 488 cycles
 	vdp.WriteControl(triggerCycle, 0x9311)
@@ -2152,8 +2152,8 @@ func TestVDP_DMACopy_BusyDuration(t *testing.T) {
 	triggerCycle := uint64(1000)
 	vdp.BeginScanline(triggerCycle, 488)
 
-	// Enable DMA
-	vdp.WriteControl(triggerCycle, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(triggerCycle, 0x8154)
 	vdp.WriteControl(triggerCycle, 0x8F01)
 	// DMA length = 9 bytes; H40 active copy = 9 bytes/line = 488 cycles
 	vdp.WriteControl(triggerCycle, 0x9309)
@@ -2239,8 +2239,8 @@ func TestVDP_DMA68K_StallCycles(t *testing.T) {
 	triggerCycle := uint64(1000)
 	vdp.BeginScanline(triggerCycle, 488)
 
-	// Enable DMA
-	vdp.WriteControl(triggerCycle, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(triggerCycle, 0x8154)
 	vdp.WriteControl(triggerCycle, 0x8F02)
 	// DMA length = 9 words -> 18 bytes; H40 active = 18 bytes/line = 488 cycles
 	vdp.WriteControl(triggerCycle, 0x9309)
@@ -2276,8 +2276,8 @@ func TestVDP_DMAFill_NoStall(t *testing.T) {
 	triggerCycle := uint64(1000)
 	vdp.BeginScanline(triggerCycle, 488)
 
-	// Enable DMA
-	vdp.WriteControl(triggerCycle, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(triggerCycle, 0x8154)
 	vdp.WriteControl(triggerCycle, 0x8F01)
 	// DMA length = 17 bytes
 	vdp.WriteControl(triggerCycle, 0x9311)
@@ -2313,8 +2313,8 @@ func TestVDP_DMACopy_NoStall(t *testing.T) {
 	triggerCycle := uint64(1000)
 	vdp.BeginScanline(triggerCycle, 488)
 
-	// Enable DMA
-	vdp.WriteControl(triggerCycle, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(triggerCycle, 0x8154)
 	vdp.WriteControl(triggerCycle, 0x8F01)
 	// DMA length = 9 bytes
 	vdp.WriteControl(triggerCycle, 0x9309)
@@ -2376,8 +2376,9 @@ func TestVDP_DMA_BoundarySpanning_ActiveToVBlank(t *testing.T) {
 	}
 	vdp.SetBus(bus)
 
-	// H40 active display
+	// H40 active display (display enabled for active-rate DMA)
 	vdp.regs[12] = 0x81
+	vdp.regs[1] = 0x54     // DMA + display enabled
 	vdp.StartScanline(222) // line 222, activeHeight=224, so 2 lines left
 	vdp.vBlank = false
 
@@ -2408,7 +2409,7 @@ func TestVDP_DMA_BoundarySpanning_ActiveToVBlank(t *testing.T) {
 	vdp.vBlank = false
 	vdp.BeginScanline(triggerCycle, 488)
 
-	vdp.WriteControl(triggerCycle, 0x8114) // enable DMA
+	vdp.WriteControl(triggerCycle, 0x8154) // enable DMA + display
 	vdp.WriteControl(triggerCycle, 0x8F02) // auto-increment 2
 	// DMA length = 100 words
 	vdp.WriteControl(triggerCycle, 0x9364) // reg 19 = 100
@@ -2438,8 +2439,9 @@ func TestVDP_DMA_BoundarySpanning_VBlankToActive(t *testing.T) {
 	}
 	vdp.SetBus(bus)
 
-	// H40 VBlank
+	// H40 VBlank (display enabled so active region uses active rate)
 	vdp.regs[12] = 0x81
+	vdp.regs[1] = 0x54     // DMA + display enabled
 	vdp.StartScanline(260) // 262 total, 2 lines left in VBlank
 	vdp.vBlank = true
 
@@ -2478,6 +2480,7 @@ func TestVDP_DMA_NoBoundarySpan_SmallTransfer(t *testing.T) {
 
 	// H40, line 100 of 224 active - plenty of room
 	vdp.regs[12] = 0x81
+	vdp.regs[1] = 0x54 // DMA + display enabled
 	vdp.StartScanline(100)
 	vdp.vBlank = false
 
@@ -2511,6 +2514,7 @@ func TestVDP_DMA_BoundarySpanning_Fill(t *testing.T) {
 
 	// H40 active display, line 222 of 224 -> 2 lines left
 	vdp.regs[12] = 0x81
+	vdp.regs[1] = 0x54 // DMA + display enabled
 	vdp.StartScanline(222)
 	vdp.vBlank = false
 
@@ -2541,7 +2545,7 @@ func TestVDP_DMA_BoundarySpanning_Fill(t *testing.T) {
 	vdp.vBlank = false
 	vdp.BeginScanline(triggerCycle, 488)
 
-	vdp.WriteControl(triggerCycle, 0x8114) // enable DMA
+	vdp.WriteControl(triggerCycle, 0x8154) // enable DMA + display
 	vdp.WriteControl(triggerCycle, 0x8F01) // auto-increment 1
 	// DMA length = 100 bytes
 	vdp.WriteControl(triggerCycle, 0x9364) // reg 19 = 100
@@ -2555,6 +2559,47 @@ func TestVDP_DMA_BoundarySpanning_Fill(t *testing.T) {
 	stall := vdp.DMAStallCycles()
 	if stall != 0 {
 		t.Errorf("DMAStallCycles() after fill = %d, want 0 (fill doesn't stall 68K)", stall)
+	}
+}
+
+func TestVDP_DMA_DisplayDisabled_UsesBlankRate(t *testing.T) {
+	// When display is disabled (reg 1 bit 6 = 0), DMA should use blanking
+	// rates even during the active display period.
+	vdp := makeTestVDP()
+	bus := &mockBusReader{data: make(map[uint32]uint16)}
+	for i := uint32(0); i < 40; i += 2 {
+		bus.data[i] = 0x1234
+	}
+	vdp.SetBus(bus)
+
+	// H40, active display region, but display disabled
+	vdp.regs[12] = 0x81
+	vdp.regs[1] = vdp.regs[1] & ^uint8(0x40) // clear bit 6 = display disabled
+	vdp.StartScanline(100)
+	vdp.vBlank = false
+
+	triggerCycle := uint64(1000)
+	vdp.BeginScanline(triggerCycle, 488)
+
+	// 205 bytes = 1 line at H40 blank rate
+	totalBytes := 205
+	endCycle := vdp.dmaCalcEndCycle(triggerCycle, totalBytes, 0)
+
+	// Should use blank rate (205 bytes/line), not active rate (18 bytes/line)
+	expectedEnd := triggerCycle + 488
+	if endCycle != expectedEnd {
+		t.Errorf("dmaCalcEndCycle display disabled = %d, want %d (should use blank rate)", endCycle, expectedEnd)
+	}
+
+	// Verify with display enabled it would be different (active rate)
+	vdp.regs[1] = vdp.regs[1] | 0x40 // enable display
+	endCycleEnabled := vdp.dmaCalcEndCycle(triggerCycle, totalBytes, 0)
+
+	// At active rate 18 bytes/line: 205/18 = 11 full lines + 7 remainder
+	// Should be much longer than 488
+	if endCycleEnabled <= endCycle {
+		t.Errorf("display enabled end cycle %d should be > display disabled end cycle %d",
+			endCycleEnabled, endCycle)
 	}
 }
 
@@ -2573,8 +2618,8 @@ func TestVDP_DMA68KToCRAM_PerWordPixelOffset(t *testing.T) {
 	vdp.regs[12] = 0x81
 	vdp.BeginScanline(0, 488)
 
-	// Enable DMA
-	vdp.WriteControl(0, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(0, 0x8154)
 	vdp.WriteControl(0, 0x8F02)
 	// DMA length = 7
 	vdp.WriteControl(0, 0x9307)
@@ -2628,8 +2673,8 @@ func TestVDP_DMA68KToVSRAM_PerWordPixelOffset(t *testing.T) {
 	vdp.regs[12] = 0x81
 	vdp.BeginScanline(0, 488)
 
-	// Enable DMA
-	vdp.WriteControl(0, 0x8114)
+	// Enable DMA + display
+	vdp.WriteControl(0, 0x8154)
 	vdp.WriteControl(0, 0x8F02)
 	// DMA length = 4
 	vdp.WriteControl(0, 0x9304)
