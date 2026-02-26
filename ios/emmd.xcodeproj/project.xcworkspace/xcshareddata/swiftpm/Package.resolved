@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/user-none/eblitui-ios",
       "state" : {
-        "revision" : "3b840ce23fa997668fa05cd49d748428cae00343",
-        "version" : "0.1.0"
+        "revision" : "ab5a0037e17f2c2ba226257c78730bdd7239d00f",
+        "version" : "0.2.0"
       }
     }
   ],
