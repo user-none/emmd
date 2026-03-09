@@ -7,13 +7,6 @@ import (
 	"github.com/user-none/go-chip-z80"
 )
 
-// Compile-time interface checks.
-var _ emucore.Emulator = (*Emulator)(nil)
-var _ emucore.SaveStater = (*Emulator)(nil)
-var _ emucore.BatterySaver = (*Emulator)(nil)
-var _ emucore.MemoryInspector = (*Emulator)(nil)
-var _ emucore.MemoryMapper = (*Emulator)(nil)
-
 // Flat address boundaries for ReadMemory.
 const (
 	mainRAMStart = 0x000000

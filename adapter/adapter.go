@@ -5,9 +5,6 @@ import (
 	"github.com/user-none/emmd/emu"
 )
 
-// Compile-time interface check.
-var _ emucore.CoreFactory = (*Factory)(nil)
-
 // Factory implements emucore.CoreFactory for the Genesis emulator.
 type Factory struct{}
 
