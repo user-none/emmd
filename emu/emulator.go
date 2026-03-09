@@ -330,6 +330,9 @@ func (e *Emulator) GetSRAMSize() int {
 // Close releases any resources held by the emulator.
 func (e *Emulator) Close() {}
 
+// Start finalizes emulator state after all options are applied.
+func (e *Emulator) Start() {}
+
 // SetOption applies a core option change identified by key.
 func (e *Emulator) SetOption(key string, value string) {
 	switch key {
@@ -337,6 +340,9 @@ func (e *Emulator) SetOption(key string, value string) {
 		e.SetSixButton(value == "true")
 	}
 }
+
+// SetBIOS is a no-op; the Mega Drive does not use an external BIOS.
+func (e *Emulator) SetBIOS(key string, data []byte) {}
 
 // ReadMemory reads from a flat address into buf and returns the number
 // of bytes read.

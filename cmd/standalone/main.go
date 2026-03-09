@@ -25,7 +25,7 @@ func main() {
 		} else {
 			options["six_button"] = "false"
 		}
-		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options); err != nil {
+		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options, nil); err != nil {
 			log.Fatal(err)
 		}
 		return
