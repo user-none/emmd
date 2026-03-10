@@ -51,8 +51,9 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 				Category:    emucore.CoreOptionCategoryInput,
 			},
 		},
-		RDBName:         "Sega - Mega Drive - Genesis",
-		ThumbnailRepo:   "Sega_-_Mega_Drive_-_Genesis",
+		MetadataVariants: []emucore.MetadataVariant{
+			{Name: "Mega Drive", RDBName: "Sega - Mega Drive - Genesis", ThumbnailRepo: "Sega_-_Mega_Drive_-_Genesis"},
+		},
 		DataDirName:     "emmd",
 		ConsoleID:       1,
 		CoreName:        emu.Name,
