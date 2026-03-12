@@ -2,7 +2,7 @@ package adapter
 
 import (
 	emucore "github.com/user-none/eblitui/api"
-	"github.com/user-none/emmd/emu"
+	"github.com/user-none/emmd/core"
 )
 
 // Factory implements emucore.CoreFactory for the Genesis emulator.
@@ -14,8 +14,8 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		Name:            "emmd",
 		ConsoleName:     "Sega Genesis",
 		Extensions:      []string{".md", ".bin", ".gen"},
-		ScreenWidth:     emu.ScreenWidth,
-		MaxScreenHeight: emu.MaxScreenHeight,
+		ScreenWidth:     core.ScreenWidth,
+		MaxScreenHeight: core.MaxScreenHeight,
 		// NTSC pixel aspect ratio for H40 mode (32:35).
 		// The Genesis master clock is 53.693175 MHz. In H40, the pixel
 		// clock is master/8 and 320 active pixels span 2560 master clocks
@@ -56,16 +56,16 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		},
 		DataDirName:     "emmd",
 		ConsoleID:       1,
-		CoreName:        emu.Name,
-		CoreVersion:     emu.Version,
-		SerializeSize:   emu.SerializeSize(),
+		CoreName:        core.Name,
+		CoreVersion:     core.Version,
+		SerializeSize:   core.SerializeSize(),
 		BigEndianMemory: true,
 	}
 }
 
 // CreateEmulator creates a new emulator instance with the given ROM and region.
 func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emulator, error) {
-	e, err := emu.NewEmulator(rom, region)
+	e, err := core.NewEmulator(rom, region)
 	if err != nil {
 		return nil, err
 	}
@@ -76,5 +76,5 @@ func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emu
 // The bool return is false since emmd uses header-based detection,
 // not a ROM database lookup.
 func (f *Factory) DetectRegion(rom []byte) (emucore.Region, bool) {
-	return emu.DetectRegion(rom), false
+	return core.DetectRegion(rom), false
 }
