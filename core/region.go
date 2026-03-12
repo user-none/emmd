@@ -1,13 +1,13 @@
 package core
 
-import emucore "github.com/user-none/eblitui/api"
+import "github.com/user-none/eblitui/coreif"
 
-// Region is an alias for emucore.Region so internal code compiles unchanged.
-type Region = emucore.Region
+// Region is an alias for coreif.Region so internal code compiles unchanged.
+type Region = coreif.Region
 
 const (
-	RegionNTSC = emucore.RegionNTSC
-	RegionPAL  = emucore.RegionPAL
+	RegionNTSC = coreif.RegionNTSC
+	RegionPAL  = coreif.RegionPAL
 )
 
 // RegionTiming holds timing constants for a specific region.

@@ -1,16 +1,16 @@
 package adapter
 
 import (
-	emucore "github.com/user-none/eblitui/api"
+	"github.com/user-none/eblitui/coreif"
 	"github.com/user-none/emmd/core"
 )
 
-// Factory implements emucore.CoreFactory for the Genesis emulator.
+// Factory implements CoreFactory for the Genesis emulator.
 type Factory struct{}
 
 // SystemInfo returns system metadata for UI configuration.
-func (f *Factory) SystemInfo() emucore.SystemInfo {
-	return emucore.SystemInfo{
+func (f *Factory) SystemInfo() coreif.SystemInfo {
+	return coreif.SystemInfo{
 		Name:            "emmd",
 		ConsoleName:     "Sega Genesis",
 		Extensions:      []string{".md", ".bin", ".gen"},
@@ -31,7 +31,7 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 		// a negligible PAR difference, so this value is used for both.
 		PixelAspectRatio: 32.0 / 35.0,
 		SampleRate:       48000,
-		Buttons: []emucore.Button{
+		Buttons: []coreif.Button{
 			{Name: "A", ID: 4, DefaultKey: "J", DefaultPad: "X"},
 			{Name: "B", ID: 5, DefaultKey: "K", DefaultPad: "A"},
 			{Name: "C", ID: 6, DefaultKey: "L", DefaultPad: "B"},
@@ -41,17 +41,17 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 			{Name: "Start", ID: 7, DefaultKey: "Enter", DefaultPad: "Start"},
 		},
 		Players: 2,
-		CoreOptions: []emucore.CoreOption{
+		CoreOptions: []coreif.CoreOption{
 			{
 				Key:         "six_button",
 				Label:       "6-Button Controller",
 				Description: "Enable 6-button controller mode",
-				Type:        emucore.CoreOptionBool,
+				Type:        coreif.CoreOptionBool,
 				Default:     "false",
-				Category:    emucore.CoreOptionCategoryInput,
+				Category:    coreif.CoreOptionCategoryInput,
 			},
 		},
-		MetadataVariants: []emucore.MetadataVariant{
+		MetadataVariants: []coreif.MetadataVariant{
 			{Name: "Mega Drive", RDBName: "Sega - Mega Drive - Genesis", ThumbnailRepo: "Sega_-_Mega_Drive_-_Genesis"},
 		},
 		DataDirName:     "emmd",
@@ -64,7 +64,7 @@ func (f *Factory) SystemInfo() emucore.SystemInfo {
 }
 
 // CreateEmulator creates a new emulator instance with the given ROM and region.
-func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emulator, error) {
+func (f *Factory) CreateEmulator(rom []byte, region coreif.Region) (coreif.Emulator, error) {
 	e, err := core.NewEmulator(rom, region)
 	if err != nil {
 		return nil, err
@@ -75,6 +75,6 @@ func (f *Factory) CreateEmulator(rom []byte, region emucore.Region) (emucore.Emu
 // DetectRegion auto-detects the region from ROM header data.
 // The bool return is false since emmd uses header-based detection,
 // not a ROM database lookup.
-func (f *Factory) DetectRegion(rom []byte) (emucore.Region, bool) {
+func (f *Factory) DetectRegion(rom []byte) (coreif.Region, bool) {
 	return core.DetectRegion(rom), false
 }

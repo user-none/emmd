@@ -4,9 +4,9 @@ go 1.25.7
 
 require (
 	github.com/user-none/eblitui-ios v0.2.0
-	github.com/user-none/eblitui/api v0.3.0
-	github.com/user-none/eblitui/libretro v0.2.0
-	github.com/user-none/eblitui/standalone v0.4.0
+	github.com/user-none/eblitui/coreif v0.4.0
+	github.com/user-none/eblitui/libretro v0.3.0
+	github.com/user-none/eblitui/standalone v0.5.0
 	github.com/user-none/go-chip-m68k v0.0.0-20260224221537-9eb803417491
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
 	github.com/user-none/go-chip-z80 v0.0.0-20260217121811-e750030ddfd5
@@ -38,6 +38,7 @@ require (
 	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
+	github.com/user-none/eblitui/api v0.2.0 // indirect
 	github.com/user-none/eblitui/rdb v0.1.0 // indirect
 	github.com/user-none/eblitui/romloader v0.1.0 // indirect
 	github.com/user-none/go-rcheevos v0.0.0 // indirect
