@@ -2,5 +2,5 @@ package emmd
 
 const (
 	Name    = "emmd"
-	Version = "0.8.1"
+	Version = "1.0.0"
 )
