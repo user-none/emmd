@@ -9,7 +9,7 @@ APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 # Source files
 ICON_MASTER := assets/icon.png
 ICON_ICNS := $(BUILD_DIR)/icon.icns
-IOS_ICON := ios/emmd/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
+IOS_ICON := ios/Sources/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 
 # Build all targets
 all: libretro standalone

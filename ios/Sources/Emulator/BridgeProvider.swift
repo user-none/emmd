@@ -2,8 +2,8 @@ import Foundation
 import Emulator
 import EblituiIOS
 
-/// Concrete bridge provider for the emmd (Mega Drive) emulator.
-struct EmmdBridgeProvider: EmulatorBridgeProvider {
+/// Concrete bridge provider for the emulator core.
+struct CoreBridgeProvider: EmulatorBridgeProvider {
     private static var cachedSystemInfo: SystemInfo?
 
     static var systemInfo: SystemInfo {
@@ -20,7 +20,7 @@ struct EmmdBridgeProvider: EmulatorBridgeProvider {
     }
 
     static func createEngine() -> EmulatorEngine {
-        return EmmdEmulatorEngine()
+        return CoreEmulatorEngine()
     }
 
     static func crc32(ofPath path: String) -> UInt32? {

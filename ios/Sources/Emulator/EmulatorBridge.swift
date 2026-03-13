@@ -3,7 +3,7 @@ import Emulator
 import EblituiIOS
 
 /// Concrete emulator engine wrapping the Go Emulator framework.
-class EmmdEmulatorEngine: EmulatorEngine {
+class CoreEmulatorEngine: EmulatorEngine {
     private(set) var isLoaded = false
 
     var fps: Int {
@@ -66,6 +66,10 @@ class EmmdEmulatorEngine: EmulatorEngine {
 
     func setOption(key: String, value: String) {
         EmuiosSetOption(key, value)
+    }
+
+    func start() {
+        EmuiosStart()
     }
 
     // MARK: - Save States

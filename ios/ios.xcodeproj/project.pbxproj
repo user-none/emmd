@@ -33,9 +33,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		52970A6C2F4800C9000BEFF2 /* emmd */ = {
+		52970A6C2F4800C9000BEFF2 /* Sources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = emmd;
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -64,7 +64,7 @@
 		52970A612F4800C9000BEFF2 = {
 			isa = PBXGroup;
 			children = (
-				52970A6C2F4800C9000BEFF2 /* emmd */,
+				52970A6C2F4800C9000BEFF2 /* Sources */,
 				527CBBA02F4806AB0074E225 /* Frameworks */,
 				52970A6B2F4800C9000BEFF2 /* Products */,
 				52970A7F2F4800CA000BEFF2 /* Signing.xcconfig */,
@@ -96,7 +96,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				52970A6C2F4800C9000BEFF2 /* emmd */,
+				52970A6C2F4800C9000BEFF2 /* Sources */,
 			);
 			name = emmd;
 			packageProductDependencies = (
@@ -121,7 +121,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 52970A652F4800C9000BEFF2 /* Build configuration list for PBXProject "emmd" */;
+			buildConfigurationList = 52970A652F4800C9000BEFF2 /* Build configuration list for PBXProject "ios" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -305,7 +305,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "github.com-user-none-emmd.emmd";
+				PRODUCT_BUNDLE_IDENTIFIER = "github.com-user-none-emmd";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -339,7 +339,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "github.com-user-none-emmd.emmd";
+				PRODUCT_BUNDLE_IDENTIFIER = "github.com-user-none-emmd";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -354,7 +354,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		52970A652F4800C9000BEFF2 /* Build configuration list for PBXProject "emmd" */ = {
+		52970A652F4800C9000BEFF2 /* Build configuration list for PBXProject "ios" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				52970A732F4800CA000BEFF2 /* Debug */,

@@ -39,3 +39,4 @@ func ExtractAndStoreROM(srcPath, destDir string) (string, error) {
 }
 func GetCRC32FromPath(path string) int64 { return ios.GetCRC32FromPath(path) }
 func SetOption(key string, value string) { ios.SetOption(key, value) }
+func Start()                             { ios.Start() }

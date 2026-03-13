@@ -9,11 +9,11 @@ framework:
 		-o $(XCFRAMEWORK) ../cmd/ios
 
 build: framework
-	xcodebuild -project emmd.xcodeproj -scheme emmd \
+	xcodebuild -project ios.xcodeproj -scheme emmd \
 		-destination 'generic/platform=iOS' build
 
 simulator: framework
-	xcodebuild -project emmd.xcodeproj -scheme emmd \
+	xcodebuild -project ios.xcodeproj -scheme emmd \
 		-destination 'platform=iOS Simulator,name=iPhone 16' build
 
 clean:
