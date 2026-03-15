@@ -9,7 +9,7 @@ require (
 	github.com/user-none/eblitui/standalone v0.6.0
 	github.com/user-none/go-chip-m68k v0.0.0-20260224221537-9eb803417491
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
-	github.com/user-none/go-chip-z80 v0.0.0-20260217121811-e750030ddfd5
+	github.com/user-none/go-chip-z80 v0.0.0-20260315161243-6c949bf925bb
 )
 
 require (
