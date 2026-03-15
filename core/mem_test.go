@@ -37,12 +37,12 @@ func makeTestBus() *GenesisBus {
 
 func TestGenesisBus_ReadROMByte(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Byte, 0)
+	val := bus.Read8(0)
 	if val != 0x00 {
 		t.Errorf("expected 0x00, got 0x%02X", val)
 	}
 
-	val = bus.Read(m68k.Byte, 1)
+	val = bus.Read8(1)
 	if val != 0xFF {
 		t.Errorf("expected 0xFF, got 0x%02X", val)
 	}
@@ -50,7 +50,7 @@ func TestGenesisBus_ReadROMByte(t *testing.T) {
 
 func TestGenesisBus_ReadROMWord(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Word, 0)
+	val := bus.Read16(0)
 	if val != 0x00FF {
 		t.Errorf("expected 0x00FF, got 0x%04X", val)
 	}
@@ -59,13 +59,13 @@ func TestGenesisBus_ReadROMWord(t *testing.T) {
 func TestGenesisBus_ReadROMLong(t *testing.T) {
 	bus := makeTestBus()
 	// SSP at address 0 = 0x00FF0000
-	val := bus.Read(m68k.Long, 0)
+	val := bus.Read32(0)
 	if val != 0x00FF0000 {
 		t.Errorf("expected 0x00FF0000, got 0x%08X", val)
 	}
 
 	// PC at address 4 = 0x00000200
-	val = bus.Read(m68k.Long, 4)
+	val = bus.Read32(4)
 	if val != 0x00000200 {
 		t.Errorf("expected 0x00000200, got 0x%08X", val)
 	}
@@ -73,7 +73,7 @@ func TestGenesisBus_ReadROMLong(t *testing.T) {
 
 func TestGenesisBus_ReadROMPastEnd(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Byte, 0x1000)
+	val := bus.Read8(0x1000)
 	if val != 0 {
 		t.Errorf("expected 0, got 0x%02X", val)
 	}
@@ -82,8 +82,8 @@ func TestGenesisBus_ReadROMPastEnd(t *testing.T) {
 func TestGenesisBus_ROMReadOnly(t *testing.T) {
 	bus := makeTestBus()
 	// Writing to ROM should not change ROM
-	bus.Write(m68k.Byte, 0, 0xAA)
-	val := bus.Read(m68k.Byte, 0)
+	bus.Write8(0, 0xAA)
+	val := bus.Read8(0)
 	if val != 0x00 {
 		t.Errorf("ROM should be read-only, expected 0x00, got 0x%02X", val)
 	}
@@ -91,8 +91,8 @@ func TestGenesisBus_ROMReadOnly(t *testing.T) {
 
 func TestGenesisBus_RAMByteReadWrite(t *testing.T) {
 	bus := makeTestBus()
-	bus.Write(m68k.Byte, 0xFF0000, 0x42)
-	val := bus.Read(m68k.Byte, 0xFF0000)
+	bus.Write8(0xFF0000, 0x42)
+	val := bus.Read8(0xFF0000)
 	if val != 0x42 {
 		t.Errorf("expected 0x42, got 0x%02X", val)
 	}
@@ -100,15 +100,15 @@ func TestGenesisBus_RAMByteReadWrite(t *testing.T) {
 
 func TestGenesisBus_RAMWordReadWrite(t *testing.T) {
 	bus := makeTestBus()
-	bus.Write(m68k.Word, 0xFF0000, 0xBEEF)
-	val := bus.Read(m68k.Word, 0xFF0000)
+	bus.Write16(0xFF0000, 0xBEEF)
+	val := bus.Read16(0xFF0000)
 	if val != 0xBEEF {
 		t.Errorf("expected 0xBEEF, got 0x%04X", val)
 	}
 
 	// Verify individual bytes (big-endian)
-	hi := bus.Read(m68k.Byte, 0xFF0000)
-	lo := bus.Read(m68k.Byte, 0xFF0001)
+	hi := bus.Read8(0xFF0000)
+	lo := bus.Read8(0xFF0001)
 	if hi != 0xBE {
 		t.Errorf("expected high byte 0xBE, got 0x%02X", hi)
 	}
@@ -119,8 +119,8 @@ func TestGenesisBus_RAMWordReadWrite(t *testing.T) {
 
 func TestGenesisBus_RAMLongReadWrite(t *testing.T) {
 	bus := makeTestBus()
-	bus.Write(m68k.Long, 0xFF0000, 0xDEADBEEF)
-	val := bus.Read(m68k.Long, 0xFF0000)
+	bus.Write32(0xFF0000, 0xDEADBEEF)
+	val := bus.Read32(0xFF0000)
 	if val != 0xDEADBEEF {
 		t.Errorf("expected 0xDEADBEEF, got 0x%08X", val)
 	}
@@ -129,16 +129,16 @@ func TestGenesisBus_RAMLongReadWrite(t *testing.T) {
 func TestGenesisBus_RAMMirroring(t *testing.T) {
 	bus := makeTestBus()
 	// Write at base RAM address
-	bus.Write(m68k.Byte, 0xFF0000, 0x55)
+	bus.Write8(0xFF0000, 0x55)
 	// Read from mirrored address (64KB mirror wraps around the lower 16 bits)
-	val := bus.Read(m68k.Byte, 0xFF0000)
+	val := bus.Read8(0xFF0000)
 	if val != 0x55 {
 		t.Errorf("expected 0x55, got 0x%02X", val)
 	}
 
 	// Address 0xFFFFFF should mirror to RAM offset 0xFFFF
-	bus.Write(m68k.Byte, 0xFFFFFF, 0xAA)
-	val = bus.Read(m68k.Byte, 0xFFFFFF)
+	bus.Write8(0xFFFFFF, 0xAA)
+	val = bus.Read8(0xFFFFFF)
 	if val != 0xAA {
 		t.Errorf("expected 0xAA, got 0x%02X", val)
 	}
@@ -149,30 +149,30 @@ func TestGenesisBus_RAMMirrorE00000(t *testing.T) {
 
 	// RAM is mirrored through $E00000-$FFFFFF (64KB physical, mirrored every $10000).
 	// Write via $FF0000, read back via $E00000 mirror.
-	bus.Write(m68k.Word, 0xFF0042, 0x1234)
-	val := bus.Read(m68k.Word, 0xE00042)
+	bus.Write16(0xFF0042, 0x1234)
+	val := bus.Read16(0xE00042)
 	if val != 0x1234 {
 		t.Errorf("$E00000 mirror read: expected 0x1234, got 0x%04X", val)
 	}
 
 	// Write via $E10000 mirror, read back via $FF0000.
-	bus.Write(m68k.Byte, 0xE10080, 0xAB)
-	val = bus.Read(m68k.Byte, 0xFF0080)
-	if val != 0xAB {
-		t.Errorf("$E10000 mirror write: expected 0xAB, got 0x%02X", val)
+	bus.Write8(0xE10080, 0xAB)
+	val8 := bus.Read8(0xFF0080)
+	if val8 != 0xAB {
+		t.Errorf("$E10000 mirror write: expected 0xAB, got 0x%02X", val8)
 	}
 
 	// $FE0000 mirror should also work.
-	bus.Write(m68k.Byte, 0xFE0010, 0xCD)
-	val = bus.Read(m68k.Byte, 0xFF0010)
-	if val != 0xCD {
-		t.Errorf("$FE0000 mirror write: expected 0xCD, got 0x%02X", val)
+	bus.Write8(0xFE0010, 0xCD)
+	val8 = bus.Read8(0xFF0010)
+	if val8 != 0xCD {
+		t.Errorf("$FE0000 mirror write: expected 0xCD, got 0x%02X", val8)
 	}
 }
 
 func TestGenesisBus_IOVersionRegister(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Byte, 0xA10001)
+	val := bus.Read8(0xA10001)
 	// NTSC overseas, no expansion: 0xA0
 	if val != 0xA0 {
 		t.Errorf("expected 0xA0, got 0x%02X", val)
@@ -182,12 +182,12 @@ func TestGenesisBus_IOVersionRegister(t *testing.T) {
 func TestGenesisBus_IOControllerPorts(t *testing.T) {
 	bus := makeTestBus()
 	// Controller data port 1
-	val := bus.Read(m68k.Byte, 0xA10003)
+	val := bus.Read8(0xA10003)
 	if val != 0xFF {
 		t.Errorf("expected 0xFF (no buttons), got 0x%02X", val)
 	}
 	// Controller data port 2
-	val = bus.Read(m68k.Byte, 0xA10005)
+	val = bus.Read8(0xA10005)
 	if val != 0xFF {
 		t.Errorf("expected 0xFF (no buttons), got 0x%02X", val)
 	}
@@ -195,7 +195,7 @@ func TestGenesisBus_IOControllerPorts(t *testing.T) {
 
 func TestGenesisBus_VDPControlRead(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Word, 0xC00004)
+	val := bus.Read16(0xC00004)
 	if val != 0x7600 {
 		t.Errorf("expected VDP status 0x7600, got 0x%04X", val)
 	}
@@ -203,7 +203,7 @@ func TestGenesisBus_VDPControlRead(t *testing.T) {
 
 func TestGenesisBus_VDPDataRead(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Word, 0xC00000)
+	val := bus.Read16(0xC00000)
 	if val != 0x0000 {
 		t.Errorf("expected VDP data 0x0000, got 0x%04X", val)
 	}
@@ -211,7 +211,7 @@ func TestGenesisBus_VDPDataRead(t *testing.T) {
 
 func TestGenesisBus_Z80BusRequest(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Word, 0xA11100)
+	val := bus.Read16(0xA11100)
 	if val != 0x0100 {
 		t.Errorf("expected Z80 bus granted 0x0100, got 0x%04X", val)
 	}
@@ -219,8 +219,8 @@ func TestGenesisBus_Z80BusRequest(t *testing.T) {
 
 func TestGenesisBus_Z80RAMReadWrite(t *testing.T) {
 	bus := makeTestBus()
-	bus.Write(m68k.Byte, 0xA00000, 0x76)
-	val := bus.Read(m68k.Byte, 0xA00000)
+	bus.Write8(0xA00000, 0x76)
+	val := bus.Read8(0xA00000)
 	if val != 0x76 {
 		t.Errorf("expected 0x76, got 0x%02X", val)
 	}
@@ -228,7 +228,7 @@ func TestGenesisBus_Z80RAMReadWrite(t *testing.T) {
 
 func TestGenesisBus_UnmappedReturnsZero(t *testing.T) {
 	bus := makeTestBus()
-	val := bus.Read(m68k.Byte, 0x800000)
+	val := bus.Read8(0x800000)
 	if val != 0 {
 		t.Errorf("expected 0 for unmapped region, got 0x%02X", val)
 	}
@@ -236,9 +236,9 @@ func TestGenesisBus_UnmappedReturnsZero(t *testing.T) {
 
 func TestGenesisBus_Reset(t *testing.T) {
 	bus := makeTestBus()
-	bus.Write(m68k.Byte, 0xFF0000, 0x42)
+	bus.Write8(0xFF0000, 0x42)
 	bus.Reset()
-	val := bus.Read(m68k.Byte, 0xFF0000)
+	val := bus.Read8(0xFF0000)
 	if val != 0 {
 		t.Errorf("expected 0 after reset, got 0x%02X", val)
 	}
@@ -315,7 +315,7 @@ func TestGenesisBus_SRAMNoHeader(t *testing.T) {
 func TestGenesisBus_SRAMDisabledByDefault(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// SRAM should not be enabled by default; reads from SRAM range return ROM data
-	val := bus.Read(m68k.Byte, 0x200000)
+	val := bus.Read8(0x200000)
 	// ROM is only 0x400 bytes, so address 0x200000 is past end -> should return 0
 	if val != 0 {
 		t.Errorf("expected 0 (ROM past end), got 0x%02X", val)
@@ -325,7 +325,7 @@ func TestGenesisBus_SRAMDisabledByDefault(t *testing.T) {
 func TestGenesisBus_A130F1Enable(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// Write 0x01 to enable SRAM (not writable)
-	bus.Write(m68k.Byte, 0xA130F1, 0x01)
+	bus.Write8(0xA130F1, 0x01)
 	if !bus.sramEnabled {
 		t.Error("expected sramEnabled to be true")
 	}
@@ -333,7 +333,7 @@ func TestGenesisBus_A130F1Enable(t *testing.T) {
 		t.Error("expected sramWritable to be false")
 	}
 	// Read back register
-	val := bus.Read(m68k.Byte, 0xA130F1)
+	val := bus.Read8(0xA130F1)
 	if val != 0x01 {
 		t.Errorf("expected $A130F1 read 0x01, got 0x%02X", val)
 	}
@@ -342,14 +342,14 @@ func TestGenesisBus_A130F1Enable(t *testing.T) {
 func TestGenesisBus_A130F1EnableWritable(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// Write 0x03 to enable SRAM + writable
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
+	bus.Write8(0xA130F1, 0x03)
 	if !bus.sramEnabled {
 		t.Error("expected sramEnabled to be true")
 	}
 	if !bus.sramWritable {
 		t.Error("expected sramWritable to be true")
 	}
-	val := bus.Read(m68k.Byte, 0xA130F1)
+	val := bus.Read8(0xA130F1)
 	if val != 0x03 {
 		t.Errorf("expected $A130F1 read 0x03, got 0x%02X", val)
 	}
@@ -358,10 +358,10 @@ func TestGenesisBus_A130F1EnableWritable(t *testing.T) {
 func TestGenesisBus_SRAMReadWrite(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// Enable + writable
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
+	bus.Write8(0xA130F1, 0x03)
 	// Write a byte to SRAM
-	bus.Write(m68k.Byte, 0x200000, 0x42)
-	val := bus.Read(m68k.Byte, 0x200000)
+	bus.Write8(0x200000, 0x42)
+	val := bus.Read8(0x200000)
 	if val != 0x42 {
 		t.Errorf("expected 0x42, got 0x%02X", val)
 	}
@@ -370,10 +370,10 @@ func TestGenesisBus_SRAMReadWrite(t *testing.T) {
 func TestGenesisBus_SRAMWriteProtected(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// Enable but NOT writable (0x01)
-	bus.Write(m68k.Byte, 0xA130F1, 0x01)
-	bus.Write(m68k.Byte, 0x200000, 0x42)
+	bus.Write8(0xA130F1, 0x01)
+	bus.Write8(0x200000, 0x42)
 	// SRAM should still be all zeros (write ignored)
-	val := bus.Read(m68k.Byte, 0x200000)
+	val := bus.Read8(0x200000)
 	if val != 0x00 {
 		t.Errorf("expected 0x00 (write protected), got 0x%02X", val)
 	}
@@ -381,15 +381,15 @@ func TestGenesisBus_SRAMWriteProtected(t *testing.T) {
 
 func TestGenesisBus_SRAMWordReadWrite(t *testing.T) {
 	bus := makeTestBusWithSRAM()
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
-	bus.Write(m68k.Word, 0x200000, 0xBEEF)
-	val := bus.Read(m68k.Word, 0x200000)
+	bus.Write8(0xA130F1, 0x03)
+	bus.Write16(0x200000, 0xBEEF)
+	val := bus.Read16(0x200000)
 	if val != 0xBEEF {
 		t.Errorf("expected 0xBEEF, got 0x%04X", val)
 	}
 	// Verify individual bytes
-	hi := bus.Read(m68k.Byte, 0x200000)
-	lo := bus.Read(m68k.Byte, 0x200001)
+	hi := bus.Read8(0x200000)
+	lo := bus.Read8(0x200001)
 	if hi != 0xBE {
 		t.Errorf("expected high byte 0xBE, got 0x%02X", hi)
 	}
@@ -400,12 +400,12 @@ func TestGenesisBus_SRAMWordReadWrite(t *testing.T) {
 
 func TestGenesisBus_SRAMPreservedOnReset(t *testing.T) {
 	bus := makeTestBusWithSRAM()
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
-	bus.Write(m68k.Byte, 0x200000, 0x55)
+	bus.Write8(0xA130F1, 0x03)
+	bus.Write8(0x200000, 0x55)
 	bus.Reset()
 	// Re-enable SRAM after reset (register state is cleared)
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
-	val := bus.Read(m68k.Byte, 0x200000)
+	bus.Write8(0xA130F1, 0x03)
+	val := bus.Read8(0x200000)
 	if val != 0x55 {
 		t.Errorf("expected 0x55 (SRAM preserved after reset), got 0x%02X", val)
 	}
@@ -413,9 +413,9 @@ func TestGenesisBus_SRAMPreservedOnReset(t *testing.T) {
 
 func TestGenesisBus_SRAMGetSet(t *testing.T) {
 	bus := makeTestBusWithSRAM()
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
-	bus.Write(m68k.Byte, 0x200000, 0xAB)
-	bus.Write(m68k.Byte, 0x200001, 0xCD)
+	bus.Write8(0xA130F1, 0x03)
+	bus.Write8(0x200000, 0xAB)
+	bus.Write8(0x200001, 0xCD)
 
 	// GetSRAM should return a copy
 	data := bus.GetSRAM()
@@ -425,7 +425,7 @@ func TestGenesisBus_SRAMGetSet(t *testing.T) {
 
 	// Modify the copy - should not affect bus SRAM
 	data[0] = 0xFF
-	val := bus.Read(m68k.Byte, 0x200000)
+	val := bus.Read8(0x200000)
 	if val != 0xAB {
 		t.Errorf("GetSRAM should return a copy, but bus was modified")
 	}
@@ -435,11 +435,11 @@ func TestGenesisBus_SRAMGetSet(t *testing.T) {
 	newData[0] = 0x11
 	newData[1] = 0x22
 	bus.SetSRAM(newData)
-	val = bus.Read(m68k.Byte, 0x200000)
+	val = bus.Read8(0x200000)
 	if val != 0x11 {
 		t.Errorf("expected 0x11 after SetSRAM, got 0x%02X", val)
 	}
-	val = bus.Read(m68k.Byte, 0x200001)
+	val = bus.Read8(0x200001)
 	if val != 0x22 {
 		t.Errorf("expected 0x22 after SetSRAM, got 0x%02X", val)
 	}
@@ -452,7 +452,7 @@ func TestGenesisBus_TASWriteSuppressed(t *testing.T) {
 	bus.rom[0x201] = 0x90
 	// The TAS target: set up A0 to point to RAM
 	// Write a known value to RAM at 0xFF0010
-	bus.Write(m68k.Byte, 0xFF0010, 0x55)
+	bus.Write8(0xFF0010, 0x55)
 
 	// Create CPU so the bus has the IR reference
 	cpu := m68k.New(bus)
@@ -469,7 +469,7 @@ func TestGenesisBus_TASWriteSuppressed(t *testing.T) {
 	cpu.Step()
 
 	// RAM should be unchanged (write-back suppressed on Genesis)
-	val := bus.Read(m68k.Byte, 0xFF0010)
+	val := bus.Read8(0xFF0010)
 	if val != 0x55 {
 		t.Errorf("TAS should not write back on Genesis: expected 0x55, got 0x%02X", val)
 	}
@@ -508,18 +508,18 @@ func TestGenesisBus_TASRegisterNotSuppressed(t *testing.T) {
 func TestGenesisBus_A130F1Disable(t *testing.T) {
 	bus := makeTestBusWithSRAM()
 	// Enable + writable, write data
-	bus.Write(m68k.Byte, 0xA130F1, 0x03)
-	bus.Write(m68k.Byte, 0x200000, 0x42)
+	bus.Write8(0xA130F1, 0x03)
+	bus.Write8(0x200000, 0x42)
 	// Disable SRAM
-	bus.Write(m68k.Byte, 0xA130F1, 0x00)
+	bus.Write8(0xA130F1, 0x00)
 	// Reads should now return ROM data (ROM is only 0x400 bytes, so 0x200000 is past end -> 0)
-	val := bus.Read(m68k.Byte, 0x200000)
+	val := bus.Read8(0x200000)
 	if val != 0x00 {
 		t.Errorf("expected 0x00 (ROM past end, SRAM disabled), got 0x%02X", val)
 	}
 	// Re-enable SRAM - data should still be there
-	bus.Write(m68k.Byte, 0xA130F1, 0x01)
-	val = bus.Read(m68k.Byte, 0x200000)
+	bus.Write8(0xA130F1, 0x01)
+	val = bus.Read8(0x200000)
 	if val != 0x42 {
 		t.Errorf("expected 0x42 (SRAM data preserved), got 0x%02X", val)
 	}

@@ -117,79 +117,168 @@ func (b *GenesisBus) parseSRAMHeader() {
 	b.sramEnd = end
 }
 
-// Read implements m68k.Bus.
-func (b *GenesisBus) Read(s m68k.Size, addr uint32) uint32 {
-	addr &= 0xFFFFFF // 24-bit address bus
+// sramReadByte returns the SRAM byte value, or 0 if out of range.
+func (b *GenesisBus) sramReadByte(addr uint32) byte {
+	offset := addr - b.sramStart
+	if offset < uint32(len(b.sram)) {
+		return b.sram[offset]
+	}
+	return 0
+}
 
+// Read8 implements m68k.Bus.
+func (b *GenesisBus) Read8(addr uint32) uint8 {
+	addr &= 0xFFFFFF
 	switch {
 	case addr < 0x400000:
 		if b.sramEnabled && b.sram != nil && addr >= b.sramStart && addr <= b.sramEnd {
-			return b.readSRAM(s, addr)
+			return b.sramReadByte(addr)
 		}
-		return b.readROM(s, addr)
+		return b.readROM8(addr)
 	case addr >= 0xA00000 && addr <= 0xA0FFFF:
-		return b.readZ80(s, addr)
+		return b.readZ808(addr)
 	case addr >= 0xA10000 && addr <= 0xA1001F:
-		return b.readIO(s, addr)
+		return b.io.ReadRegister(b.cpu.Cycles(), addr)
 	case addr >= 0xA11100 && addr <= 0xA11101:
-		// Z80 bus request: bit 0 of high byte = 0 means bus granted to 68K
 		if b.z80BusRequested {
-			// Bus requested: grant immediately (bit 0 = 0)
-			return b.readSized(s, 0x00, 0x00)
+			return 0x00
 		}
-		// Bus not requested (bit 0 = 1)
-		return b.readSized(s, 0x01, 0x00)
+		return 0x01
 	case addr >= 0xA11200 && addr <= 0xA11201:
-		// Z80 reset
-		return b.readSized(s, 0x00, 0x00)
+		return 0x00
 	case addr >= 0xC00000 && addr <= 0xDFFFFF:
-		// VDP is mirrored every 32 bytes in this range.
-		// 68K byte reads: even addr -> high byte, odd addr -> low byte.
 		port := addr & 0x1F
 		switch {
-		case port <= 0x03: // Data port
-			switch s {
-			case m68k.Long:
-				hi := uint32(b.vdp.ReadData())
-				lo := uint32(b.vdp.ReadData())
-				return hi<<16 | lo
-			case m68k.Byte:
-				val := b.vdp.ReadData()
-				if addr&1 == 0 {
-					return uint32(val >> 8)
-				}
-				return uint32(val & 0xFF)
-			default:
-				return uint32(b.vdp.ReadData())
+		case port <= 0x03:
+			val := b.vdp.ReadData()
+			if addr&1 == 0 {
+				return uint8(val >> 8)
 			}
-		case port <= 0x07: // Control/status port
+			return uint8(val)
+		case port <= 0x07:
+			val := b.vdp.ReadControl(b.cpu.Cycles())
+			if addr&1 == 0 {
+				return uint8(val >> 8)
+			}
+			return uint8(val)
+		case port <= 0x0F:
+			val := b.vdp.ReadHVCounterAtCycle(b.cpu.Cycles())
+			if addr&1 == 0 {
+				return uint8(val >> 8)
+			}
+			return uint8(val)
+		default:
+			return 0
+		}
+	case addr >= 0xA130F0 && addr <= 0xA130FF:
+		if addr == 0xA130F1 {
+			var val uint8
+			if b.sramEnabled {
+				val |= 0x01
+			}
+			if b.sramWritable {
+				val |= 0x02
+			}
+			return val
+		}
+		return 0
+	case addr >= 0xE00000:
+		return b.ram[addr&0xFFFF]
+	default:
+		return 0
+	}
+}
+
+// Read16 implements m68k.Bus.
+func (b *GenesisBus) Read16(addr uint32) uint16 {
+	addr &= 0xFFFFFF
+	switch {
+	case addr < 0x400000:
+		if b.sramEnabled && b.sram != nil && addr >= b.sramStart && addr <= b.sramEnd {
+			return uint16(b.sramReadByte(addr))<<8 | uint16(b.sramReadByte(addr+1))
+		}
+		return b.readROM16(addr)
+	case addr >= 0xA00000 && addr <= 0xA0FFFF:
+		return b.readZ8016(addr)
+	case addr >= 0xA10000 && addr <= 0xA1001F:
+		cycle := b.cpu.Cycles()
+		return uint16(b.io.ReadRegister(cycle, addr))<<8 | uint16(b.io.ReadRegister(cycle, addr+1))
+	case addr >= 0xA11100 && addr <= 0xA11101:
+		if b.z80BusRequested {
+			return 0x0000
+		}
+		return 0x0100
+	case addr >= 0xA11200 && addr <= 0xA11201:
+		return 0x0000
+	case addr >= 0xC00000 && addr <= 0xDFFFFF:
+		port := addr & 0x1F
+		switch {
+		case port <= 0x03:
+			return b.vdp.ReadData()
+		case port <= 0x07:
+			return b.vdp.ReadControl(b.cpu.Cycles())
+		case port <= 0x0F:
+			return b.vdp.ReadHVCounterAtCycle(b.cpu.Cycles())
+		default:
+			return 0
+		}
+	case addr >= 0xA130F0 && addr <= 0xA130FF:
+		if addr == 0xA130F1 {
+			var val uint8
+			if b.sramEnabled {
+				val |= 0x01
+			}
+			if b.sramWritable {
+				val |= 0x02
+			}
+			return uint16(val)
+		}
+		return 0
+	case addr >= 0xE00000:
+		idx := addr & 0xFFFF
+		return uint16(b.ram[idx])<<8 | uint16(b.ram[(idx+1)&0xFFFF])
+	default:
+		return 0
+	}
+}
+
+// Read32 implements m68k.Bus.
+func (b *GenesisBus) Read32(addr uint32) uint32 {
+	addr &= 0xFFFFFF
+	switch {
+	case addr < 0x400000:
+		if b.sramEnabled && b.sram != nil && addr >= b.sramStart && addr <= b.sramEnd {
+			return uint32(b.sramReadByte(addr))<<24 | uint32(b.sramReadByte(addr+1))<<16 |
+				uint32(b.sramReadByte(addr+2))<<8 | uint32(b.sramReadByte(addr+3))
+		}
+		return b.readROM32(addr)
+	case addr >= 0xA00000 && addr <= 0xA0FFFF:
+		return b.readZ8032(addr)
+	case addr >= 0xA10000 && addr <= 0xA1001F:
+		cycle := b.cpu.Cycles()
+		return uint32(b.io.ReadRegister(cycle, addr))<<24 | uint32(b.io.ReadRegister(cycle, addr+1))<<16 |
+			uint32(b.io.ReadRegister(cycle, addr+2))<<8 | uint32(b.io.ReadRegister(cycle, addr+3))
+	case addr >= 0xA11100 && addr <= 0xA11101:
+		if b.z80BusRequested {
+			return 0x00000000
+		}
+		return 0x01000000
+	case addr >= 0xA11200 && addr <= 0xA11201:
+		return 0x00000000
+	case addr >= 0xC00000 && addr <= 0xDFFFFF:
+		port := addr & 0x1F
+		switch {
+		case port <= 0x03:
+			hi := uint32(b.vdp.ReadData())
+			lo := uint32(b.vdp.ReadData())
+			return hi<<16 | lo
+		case port <= 0x07:
 			cycle := b.cpu.Cycles()
-			switch s {
-			case m68k.Long:
-				hi := uint32(b.vdp.ReadControl(cycle))
-				lo := uint32(b.vdp.ReadControl(cycle))
-				return hi<<16 | lo
-			case m68k.Byte:
-				val := b.vdp.ReadControl(cycle)
-				if addr&1 == 0 {
-					return uint32(val >> 8)
-				}
-				return uint32(val & 0xFF)
-			default:
-				return uint32(b.vdp.ReadControl(cycle))
-			}
-		case port <= 0x0F: // HV counter
-			cycle := b.cpu.Cycles()
-			switch s {
-			case m68k.Byte:
-				val := b.vdp.ReadHVCounterAtCycle(cycle)
-				if addr&1 == 0 {
-					return uint32(val >> 8)
-				}
-				return uint32(val & 0xFF)
-			default:
-				return uint32(b.vdp.ReadHVCounterAtCycle(cycle))
-			}
+			hi := uint32(b.vdp.ReadControl(cycle))
+			lo := uint32(b.vdp.ReadControl(cycle))
+			return hi<<16 | lo
+		case port <= 0x0F:
+			return uint32(b.vdp.ReadHVCounterAtCycle(b.cpu.Cycles()))
 		default:
 			return 0
 		}
@@ -206,93 +295,179 @@ func (b *GenesisBus) Read(s m68k.Size, addr uint32) uint32 {
 		}
 		return 0
 	case addr >= 0xE00000:
-		return b.readRAM(s, addr)
+		idx := addr & 0xFFFF
+		return uint32(b.ram[idx])<<24 | uint32(b.ram[(idx+1)&0xFFFF])<<16 |
+			uint32(b.ram[(idx+2)&0xFFFF])<<8 | uint32(b.ram[(idx+3)&0xFFFF])
 	default:
 		return 0
 	}
 }
 
-// Write implements m68k.Bus.
-func (b *GenesisBus) Write(s m68k.Size, addr uint32, value uint32) {
-	// Genesis hardware: TAS memory write-back fails because the VDP bus
-	// arbiter does not support read-modify-write cycles. Suppress the write.
+// Write8 implements m68k.Bus.
+// Genesis hardware: TAS memory write-back fails because the VDP bus
+// arbiter does not support read-modify-write cycles. Suppress the write.
+func (b *GenesisBus) Write8(addr uint32, val uint8) {
 	if b.isTASWriteBack() {
 		return
 	}
 
-	addr &= 0xFFFFFF // 24-bit address bus
-
+	addr &= 0xFFFFFF
 	switch {
 	case addr < 0x400000:
 		if b.sramWritable && b.sram != nil && addr >= b.sramStart && addr <= b.sramEnd {
-			b.writeSRAM(s, addr, value)
-		}
-		// Otherwise: ROM, read-only, ignore writes
-	case addr >= 0xA00000 && addr <= 0xA0FFFF:
-		b.writeZ80(s, addr, value)
-	case addr >= 0xA10000 && addr <= 0xA1001F:
-		b.writeIO(s, addr, value)
-	case addr >= 0xA11100 && addr <= 0xA11101:
-		// Z80 bus request: bit 0 of high byte (0xA11100) controls request
-		if s == m68k.Byte {
-			if addr == 0xA11100 {
-				b.z80BusRequested = value&0x01 != 0
+			offset := addr - b.sramStart
+			if offset < uint32(len(b.sram)) {
+				b.sram[offset] = val
 			}
-		} else {
-			b.z80BusRequested = value&0x0100 != 0
+		}
+	case addr >= 0xA00000 && addr <= 0xA0FFFF:
+		b.writeZ808(addr, val)
+	case addr >= 0xA10000 && addr <= 0xA1001F:
+		b.io.WriteRegister(b.cpu.Cycles(), addr, val)
+	case addr >= 0xA11100 && addr <= 0xA11101:
+		if addr == 0xA11100 {
+			b.z80BusRequested = val&0x01 != 0
 		}
 	case addr >= 0xA11200 && addr <= 0xA11201:
-		// Z80 reset: writing 0x0000 asserts reset, 0x0100 deasserts
 		var newReset bool
-		if s == m68k.Byte {
-			if addr == 0xA11200 {
-				newReset = value&0x01 != 0
-			} else {
-				newReset = b.z80Reset // low byte write doesn't affect reset
-			}
+		if addr == 0xA11200 {
+			newReset = val&0x01 != 0
 		} else {
-			newReset = value&0x0100 != 0
+			newReset = b.z80Reset
 		}
 		if !b.z80Reset && newReset {
 			b.z80PendingReset = true
 		}
 		b.z80Reset = newReset
 	case addr >= 0xC00000 && addr <= 0xDFFFFF:
-		// VDP is mirrored every 32 bytes in this range
 		port := addr & 0x1F
 		cycle := b.cpu.Cycles()
 		switch {
-		case port <= 0x03: // Data port
-			if s == m68k.Long {
-				b.vdp.WriteData(cycle, uint16(value>>16))
-				b.vdp.WriteData(cycle, uint16(value))
-			} else {
-				b.vdp.WriteData(cycle, uint16(value))
-			}
-		case port <= 0x07: // Control port
-			if s == m68k.Long {
-				b.vdp.WriteControl(cycle, uint16(value>>16))
-				b.vdp.WriteControl(cycle, uint16(value))
-			} else {
-				b.vdp.WriteControl(cycle, uint16(value))
-			}
+		case port <= 0x03:
+			b.vdp.WriteData(cycle, uint16(val))
+		case port <= 0x07:
+			b.vdp.WriteControl(cycle, uint16(val))
 		case port >= 0x10 && port < 0x18:
-			// PSG write port ($C00011, but responds to $10-$17 range)
-			b.psg.Write(byte(value))
+			b.psg.Write(val)
 		}
 	case addr >= 0xA130F0 && addr <= 0xA130FF:
 		if addr == 0xA130F1 {
-			var v uint8
-			if s == m68k.Byte {
-				v = uint8(value)
-			} else {
-				v = uint8(value) // Low byte for word/long writes to odd address
+			b.sramEnabled = val&0x01 != 0
+			b.sramWritable = val&0x02 != 0
+		}
+	case addr >= 0xE00000:
+		b.ram[addr&0xFFFF] = val
+	}
+}
+
+// Write16 implements m68k.Bus.
+func (b *GenesisBus) Write16(addr uint32, val uint16) {
+	addr &= 0xFFFFFF
+	switch {
+	case addr < 0x400000:
+		if b.sramWritable && b.sram != nil && addr >= b.sramStart && addr <= b.sramEnd {
+			offset := addr - b.sramStart
+			sramLen := uint32(len(b.sram))
+			if offset < sramLen {
+				b.sram[offset] = byte(val >> 8)
 			}
+			if offset+1 < sramLen {
+				b.sram[offset+1] = byte(val)
+			}
+		}
+	case addr >= 0xA00000 && addr <= 0xA0FFFF:
+		b.writeZ8016(addr, val)
+	case addr >= 0xA10000 && addr <= 0xA1001F:
+		cycle := b.cpu.Cycles()
+		b.io.WriteRegister(cycle, addr, byte(val>>8))
+		b.io.WriteRegister(cycle, addr+1, byte(val))
+	case addr >= 0xA11100 && addr <= 0xA11101:
+		b.z80BusRequested = val&0x0100 != 0
+	case addr >= 0xA11200 && addr <= 0xA11201:
+		newReset := val&0x0100 != 0
+		if !b.z80Reset && newReset {
+			b.z80PendingReset = true
+		}
+		b.z80Reset = newReset
+	case addr >= 0xC00000 && addr <= 0xDFFFFF:
+		port := addr & 0x1F
+		cycle := b.cpu.Cycles()
+		switch {
+		case port <= 0x03:
+			b.vdp.WriteData(cycle, val)
+		case port <= 0x07:
+			b.vdp.WriteControl(cycle, val)
+		case port >= 0x10 && port < 0x18:
+			b.psg.Write(byte(val))
+		}
+	case addr >= 0xA130F0 && addr <= 0xA130FF:
+		if addr == 0xA130F1 {
+			v := uint8(val)
 			b.sramEnabled = v&0x01 != 0
 			b.sramWritable = v&0x02 != 0
 		}
 	case addr >= 0xE00000:
-		b.writeRAM(s, addr, value)
+		idx := addr & 0xFFFF
+		b.ram[idx] = byte(val >> 8)
+		b.ram[(idx+1)&0xFFFF] = byte(val)
+	}
+}
+
+// Write32 implements m68k.Bus.
+func (b *GenesisBus) Write32(addr uint32, val uint32) {
+	addr &= 0xFFFFFF
+	switch {
+	case addr < 0x400000:
+		if b.sramWritable && b.sram != nil && addr >= b.sramStart && addr <= b.sramEnd {
+			offset := addr - b.sramStart
+			sramLen := uint32(len(b.sram))
+			for i := uint32(0); i < 4; i++ {
+				if offset+i < sramLen {
+					b.sram[offset+i] = byte(val >> (24 - i*8))
+				}
+			}
+		}
+	case addr >= 0xA00000 && addr <= 0xA0FFFF:
+		b.writeZ8032(addr, val)
+	case addr >= 0xA10000 && addr <= 0xA1001F:
+		cycle := b.cpu.Cycles()
+		b.io.WriteRegister(cycle, addr, byte(val>>24))
+		b.io.WriteRegister(cycle, addr+1, byte(val>>16))
+		b.io.WriteRegister(cycle, addr+2, byte(val>>8))
+		b.io.WriteRegister(cycle, addr+3, byte(val))
+	case addr >= 0xA11100 && addr <= 0xA11101:
+		b.z80BusRequested = val&0x0100 != 0
+	case addr >= 0xA11200 && addr <= 0xA11201:
+		newReset := val&0x0100 != 0
+		if !b.z80Reset && newReset {
+			b.z80PendingReset = true
+		}
+		b.z80Reset = newReset
+	case addr >= 0xC00000 && addr <= 0xDFFFFF:
+		port := addr & 0x1F
+		cycle := b.cpu.Cycles()
+		switch {
+		case port <= 0x03:
+			b.vdp.WriteData(cycle, uint16(val>>16))
+			b.vdp.WriteData(cycle, uint16(val))
+		case port <= 0x07:
+			b.vdp.WriteControl(cycle, uint16(val>>16))
+			b.vdp.WriteControl(cycle, uint16(val))
+		case port >= 0x10 && port < 0x18:
+			b.psg.Write(byte(val))
+		}
+	case addr >= 0xA130F0 && addr <= 0xA130FF:
+		if addr == 0xA130F1 {
+			v := uint8(val)
+			b.sramEnabled = v&0x01 != 0
+			b.sramWritable = v&0x02 != 0
+		}
+	case addr >= 0xE00000:
+		idx := addr & 0xFFFF
+		b.ram[idx] = byte(val >> 24)
+		b.ram[(idx+1)&0xFFFF] = byte(val >> 16)
+		b.ram[(idx+2)&0xFFFF] = byte(val >> 8)
+		b.ram[(idx+3)&0xFFFF] = byte(val)
 	}
 }
 
@@ -307,109 +482,31 @@ func (b *GenesisBus) GetROMCRC32() uint32 {
 	return b.romCRC
 }
 
-// readROM reads from ROM with big-endian byte order.
-func (b *GenesisBus) readROM(s m68k.Size, addr uint32) uint32 {
+// readROM8 reads a byte from ROM.
+func (b *GenesisBus) readROM8(addr uint32) uint8 {
+	if addr < uint32(len(b.rom)) {
+		return b.rom[addr]
+	}
+	return 0
+}
+
+// readROM16 reads a big-endian word from ROM.
+func (b *GenesisBus) readROM16(addr uint32) uint16 {
 	romLen := uint32(len(b.rom))
-	switch s {
-	case m68k.Byte:
-		if addr < romLen {
-			return uint32(b.rom[addr])
-		}
-	case m68k.Word:
-		if addr+1 < romLen {
-			return uint32(b.rom[addr])<<8 | uint32(b.rom[addr+1])
-		}
-	case m68k.Long:
-		if addr+3 < romLen {
-			return uint32(b.rom[addr])<<24 | uint32(b.rom[addr+1])<<16 |
-				uint32(b.rom[addr+2])<<8 | uint32(b.rom[addr+3])
-		}
+	if addr+1 < romLen {
+		return uint16(b.rom[addr])<<8 | uint16(b.rom[addr+1])
 	}
 	return 0
 }
 
-// readRAM reads from main RAM (64KB, mirrored) with big-endian byte order.
-func (b *GenesisBus) readRAM(s m68k.Size, addr uint32) uint32 {
-	idx := addr & 0xFFFF
-	switch s {
-	case m68k.Byte:
-		return uint32(b.ram[idx])
-	case m68k.Word:
-		return uint32(b.ram[idx])<<8 | uint32(b.ram[(idx+1)&0xFFFF])
-	case m68k.Long:
-		return uint32(b.ram[idx])<<24 | uint32(b.ram[(idx+1)&0xFFFF])<<16 |
-			uint32(b.ram[(idx+2)&0xFFFF])<<8 | uint32(b.ram[(idx+3)&0xFFFF])
+// readROM32 reads a big-endian long from ROM.
+func (b *GenesisBus) readROM32(addr uint32) uint32 {
+	romLen := uint32(len(b.rom))
+	if addr+3 < romLen {
+		return uint32(b.rom[addr])<<24 | uint32(b.rom[addr+1])<<16 |
+			uint32(b.rom[addr+2])<<8 | uint32(b.rom[addr+3])
 	}
 	return 0
-}
-
-// writeRAM writes to main RAM (64KB, mirrored) with big-endian byte order.
-func (b *GenesisBus) writeRAM(s m68k.Size, addr uint32, value uint32) {
-	idx := addr & 0xFFFF
-	switch s {
-	case m68k.Byte:
-		b.ram[idx] = byte(value)
-	case m68k.Word:
-		b.ram[idx] = byte(value >> 8)
-		b.ram[(idx+1)&0xFFFF] = byte(value)
-	case m68k.Long:
-		b.ram[idx] = byte(value >> 24)
-		b.ram[(idx+1)&0xFFFF] = byte(value >> 16)
-		b.ram[(idx+2)&0xFFFF] = byte(value >> 8)
-		b.ram[(idx+3)&0xFFFF] = byte(value)
-	}
-}
-
-// readSRAM reads from battery-backed SRAM with big-endian byte order.
-func (b *GenesisBus) readSRAM(s m68k.Size, addr uint32) uint32 {
-	offset := addr - b.sramStart
-	sramLen := uint32(len(b.sram))
-	switch s {
-	case m68k.Byte:
-		if offset < sramLen {
-			return uint32(b.sram[offset])
-		}
-	case m68k.Word:
-		if offset+1 < sramLen {
-			return uint32(b.sram[offset])<<8 | uint32(b.sram[offset+1])
-		} else if offset < sramLen {
-			return uint32(b.sram[offset]) << 8
-		}
-	case m68k.Long:
-		var val uint32
-		for i := uint32(0); i < 4; i++ {
-			if offset+i < sramLen {
-				val |= uint32(b.sram[offset+i]) << (24 - i*8)
-			}
-		}
-		return val
-	}
-	return 0
-}
-
-// writeSRAM writes to battery-backed SRAM with big-endian byte order.
-func (b *GenesisBus) writeSRAM(s m68k.Size, addr uint32, value uint32) {
-	offset := addr - b.sramStart
-	sramLen := uint32(len(b.sram))
-	switch s {
-	case m68k.Byte:
-		if offset < sramLen {
-			b.sram[offset] = byte(value)
-		}
-	case m68k.Word:
-		if offset < sramLen {
-			b.sram[offset] = byte(value >> 8)
-		}
-		if offset+1 < sramLen {
-			b.sram[offset+1] = byte(value)
-		}
-	case m68k.Long:
-		for i := uint32(0); i < 4; i++ {
-			if offset+i < sramLen {
-				b.sram[offset+i] = byte(value >> (24 - i*8))
-			}
-		}
-	}
 }
 
 // HasSRAM returns true if the ROM declares battery-backed SRAM.
@@ -435,135 +532,101 @@ func (b *GenesisBus) SetSRAM(data []byte) {
 	copy(b.sram, data)
 }
 
-// readZ80 reads from Z80 address space.
-func (b *GenesisBus) readZ80(s m68k.Size, addr uint32) uint32 {
+// readZ808 reads a byte from Z80 address space.
+func (b *GenesisBus) readZ808(addr uint32) uint8 {
 	offset := addr - 0xA00000
 	if offset < z80RAMSize {
-		switch s {
-		case m68k.Byte:
-			return uint32(b.z80RAM[offset])
-		case m68k.Word:
-			if offset+1 < z80RAMSize {
-				return uint32(b.z80RAM[offset])<<8 | uint32(b.z80RAM[offset+1])
-			}
-			return uint32(b.z80RAM[offset]) << 8
-		case m68k.Long:
-			var val uint32
-			for i := uint32(0); i < 4; i++ {
-				if offset+i < z80RAMSize {
-					val |= uint32(b.z80RAM[offset+i]) << (24 - i*8)
-				}
-			}
-			return val
-		}
-	} else if offset >= 0x4000 && offset < 0x6000 {
-		// YM2612 ports
-		port := uint8(offset & 0x03)
-		switch s {
-		case m68k.Byte:
-			return uint32(b.ym2612.ReadPort(port))
-		case m68k.Word:
-			hi := uint32(b.ym2612.ReadPort(port))
-			lo := uint32(b.ym2612.ReadPort(port | 1))
-			return hi<<8 | lo
-		case m68k.Long:
-			b0 := uint32(b.ym2612.ReadPort(port))
-			b1 := uint32(b.ym2612.ReadPort(port | 1))
-			b2 := uint32(b.ym2612.ReadPort(port | 2))
-			b3 := uint32(b.ym2612.ReadPort(port | 3))
-			return b0<<24 | b1<<16 | b2<<8 | b3
-		}
+		return b.z80RAM[offset]
+	}
+	if offset >= 0x4000 && offset < 0x6000 {
+		return b.ym2612.ReadPort(uint8(offset & 0x03))
 	}
 	return 0
 }
 
-// writeZ80 writes to Z80 address space.
-func (b *GenesisBus) writeZ80(s m68k.Size, addr uint32, value uint32) {
+// readZ8016 reads a big-endian word from Z80 address space.
+func (b *GenesisBus) readZ8016(addr uint32) uint16 {
 	offset := addr - 0xA00000
 	if offset < z80RAMSize {
-		switch s {
-		case m68k.Byte:
-			b.z80RAM[offset] = byte(value)
-		case m68k.Word:
-			b.z80RAM[offset] = byte(value >> 8)
-			if offset+1 < z80RAMSize {
-				b.z80RAM[offset+1] = byte(value)
-			}
-		case m68k.Long:
-			for i := uint32(0); i < 4; i++ {
-				if offset+i < z80RAMSize {
-					b.z80RAM[offset+i] = byte(value >> (24 - i*8))
-				}
-			}
+		hi := uint16(b.z80RAM[offset])
+		var lo uint16
+		if offset+1 < z80RAMSize {
+			lo = uint16(b.z80RAM[offset+1])
 		}
-	} else if offset >= 0x4000 && offset < 0x6000 {
-		// YM2612 ports - games commonly use word writes to set address+data
-		// in one operation (high byte = address latch, low byte = data)
-		port := uint8(offset & 0x03)
-		switch s {
-		case m68k.Byte:
-			b.ym2612.WritePort(port, byte(value))
-		case m68k.Word:
-			b.ym2612.WritePort(port, byte(value>>8))
-			b.ym2612.WritePort(port|1, byte(value))
-		case m68k.Long:
-			b.ym2612.WritePort(port, byte(value>>24))
-			b.ym2612.WritePort(port|1, byte(value>>16))
-			b.ym2612.WritePort(port|2, byte(value>>8))
-			b.ym2612.WritePort(port|3, byte(value))
-		}
+		return hi<<8 | lo
 	}
-}
-
-// readIO reads from I/O register space. For word/long reads, the value
-// is built from consecutive byte registers.
-func (b *GenesisBus) readIO(s m68k.Size, addr uint32) uint32 {
-	cycle := b.cpu.Cycles()
-	switch s {
-	case m68k.Byte:
-		return uint32(b.io.ReadRegister(cycle, addr))
-	case m68k.Word:
-		return uint32(b.io.ReadRegister(cycle, addr))<<8 | uint32(b.io.ReadRegister(cycle, addr+1))
-	case m68k.Long:
-		return uint32(b.io.ReadRegister(cycle, addr))<<24 | uint32(b.io.ReadRegister(cycle, addr+1))<<16 |
-			uint32(b.io.ReadRegister(cycle, addr+2))<<8 | uint32(b.io.ReadRegister(cycle, addr+3))
+	if offset >= 0x4000 && offset < 0x6000 {
+		port := uint8(offset & 0x03)
+		return uint16(b.ym2612.ReadPort(port))<<8 | uint16(b.ym2612.ReadPort(port|1))
 	}
 	return 0
 }
 
-// writeIO writes to I/O register space.
-func (b *GenesisBus) writeIO(s m68k.Size, addr uint32, value uint32) {
-	cycle := b.cpu.Cycles()
-	switch s {
-	case m68k.Byte:
-		b.io.WriteRegister(cycle, addr, byte(value))
-	case m68k.Word:
-		b.io.WriteRegister(cycle, addr, byte(value>>8))
-		b.io.WriteRegister(cycle, addr+1, byte(value))
-	case m68k.Long:
-		b.io.WriteRegister(cycle, addr, byte(value>>24))
-		b.io.WriteRegister(cycle, addr+1, byte(value>>16))
-		b.io.WriteRegister(cycle, addr+2, byte(value>>8))
-		b.io.WriteRegister(cycle, addr+3, byte(value))
+// readZ8032 reads a big-endian long from Z80 address space.
+func (b *GenesisBus) readZ8032(addr uint32) uint32 {
+	offset := addr - 0xA00000
+	if offset < z80RAMSize {
+		var val uint32
+		for i := uint32(0); i < 4; i++ {
+			if offset+i < z80RAMSize {
+				val |= uint32(b.z80RAM[offset+i]) << (24 - i*8)
+			}
+		}
+		return val
+	}
+	if offset >= 0x4000 && offset < 0x6000 {
+		port := uint8(offset & 0x03)
+		return uint32(b.ym2612.ReadPort(port))<<24 | uint32(b.ym2612.ReadPort(port|1))<<16 |
+			uint32(b.ym2612.ReadPort(port|2))<<8 | uint32(b.ym2612.ReadPort(port|3))
+	}
+	return 0
+}
+
+// writeZ808 writes a byte to Z80 address space.
+func (b *GenesisBus) writeZ808(addr uint32, val uint8) {
+	offset := addr - 0xA00000
+	if offset < z80RAMSize {
+		b.z80RAM[offset] = val
+	} else if offset >= 0x4000 && offset < 0x6000 {
+		b.ym2612.WritePort(uint8(offset&0x03), val)
+	}
+}
+
+// writeZ8016 writes a big-endian word to Z80 address space.
+func (b *GenesisBus) writeZ8016(addr uint32, val uint16) {
+	offset := addr - 0xA00000
+	if offset < z80RAMSize {
+		b.z80RAM[offset] = byte(val >> 8)
+		if offset+1 < z80RAMSize {
+			b.z80RAM[offset+1] = byte(val)
+		}
+	} else if offset >= 0x4000 && offset < 0x6000 {
+		port := uint8(offset & 0x03)
+		b.ym2612.WritePort(port, byte(val>>8))
+		b.ym2612.WritePort(port|1, byte(val))
+	}
+}
+
+// writeZ8032 writes a big-endian long to Z80 address space.
+func (b *GenesisBus) writeZ8032(addr uint32, val uint32) {
+	offset := addr - 0xA00000
+	if offset < z80RAMSize {
+		for i := uint32(0); i < 4; i++ {
+			if offset+i < z80RAMSize {
+				b.z80RAM[offset+i] = byte(val >> (24 - i*8))
+			}
+		}
+	} else if offset >= 0x4000 && offset < 0x6000 {
+		port := uint8(offset & 0x03)
+		b.ym2612.WritePort(port, byte(val>>24))
+		b.ym2612.WritePort(port|1, byte(val>>16))
+		b.ym2612.WritePort(port|2, byte(val>>8))
+		b.ym2612.WritePort(port|3, byte(val))
 	}
 }
 
 // ReadWord reads a 16-bit word from the bus at the given address.
 // Used by the VDP for DMA 68K transfers.
 func (b *GenesisBus) ReadWord(addr uint32) uint16 {
-	val := b.Read(m68k.Word, addr)
-	return uint16(val)
-}
-
-// readSized returns a 2-byte value as the appropriate size.
-func (b *GenesisBus) readSized(s m68k.Size, hi, lo byte) uint32 {
-	switch s {
-	case m68k.Byte:
-		return uint32(hi)
-	case m68k.Word:
-		return uint32(hi)<<8 | uint32(lo)
-	case m68k.Long:
-		return uint32(hi)<<24 | uint32(lo)<<16
-	}
-	return 0
+	return b.Read16(addr)
 }

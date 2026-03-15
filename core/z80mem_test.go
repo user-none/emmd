@@ -1,10 +1,6 @@
 package core
 
-import (
-	"testing"
-
-	"github.com/user-none/go-chip-m68k"
-)
+import "testing"
 
 func makeTestZ80Memory() *Z80Memory {
 	bus := makeTestBus()
@@ -307,8 +303,8 @@ func TestZ80Memory_BankWindowWritesToRAM(t *testing.T) {
 	mem.Write(0x8000, 0xAA)
 
 	// Verify by reading M68K RAM directly via the bus
-	val := mem.bus.Read(m68k.Byte, 0xFF0000)
-	if uint8(val) != 0xAA {
+	val := mem.bus.Read8(0xFF0000)
+	if val != 0xAA {
 		t.Errorf("bank window write to M68K RAM: expected 0xAA, got 0x%02X", val)
 	}
 }
