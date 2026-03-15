@@ -627,9 +627,9 @@ func TestYM2612_BusWriteFromM68K(t *testing.T) {
 	bus := makeTestBus()
 
 	// Write to YM2612 via M68K Z80 space: 0xA04000 = port 0
-	bus.WriteCycle(0, 1, 0xA04000, 0x2B) // Latch $2B (DAC enable)
+	bus.Write(1, 0xA04000, 0x2B) // Latch $2B (DAC enable)
 	// Write data: 0xA04001 = port 1
-	bus.WriteCycle(0, 1, 0xA04001, 0x80) // Enable DAC
+	bus.Write(1, 0xA04001, 0x80) // Enable DAC
 
 	if !bus.ym2612.dacEnable {
 		t.Error("DAC should be enabled via M68K write to 0xA04000/0xA04001")
@@ -641,7 +641,7 @@ func TestYM2612_BusWordWriteFromM68K(t *testing.T) {
 
 	// Word write to 0xA04000: high byte = address latch (port 0), low byte = data (port 1)
 	// This is the most common way games write to YM2612 from M68K
-	bus.WriteCycle(0, 2, 0xA04000, 0x2B80) // Latch $2B, data $80 -> enable DAC
+	bus.Write(2, 0xA04000, 0x2B80) // Latch $2B, data $80 -> enable DAC
 
 	if !bus.ym2612.dacEnable {
 		t.Error("DAC should be enabled via M68K word write to 0xA04000")
@@ -653,7 +653,7 @@ func TestYM2612_BusWordWritePartII(t *testing.T) {
 
 	// Word write to Part II (port 2+3): 0xA04002
 	// Latch $30 (DT/MUL for ch3 op0), data $5A (DT=5, MUL=10)
-	bus.WriteCycle(0, 2, 0xA04002, 0x305A)
+	bus.Write(2, 0xA04002, 0x305A)
 
 	if bus.ym2612.ch[3].op[0].dt != 5 || bus.ym2612.ch[3].op[0].mul != 10 {
 		t.Errorf("Part II word write failed: dt=%d mul=%d",
@@ -665,7 +665,7 @@ func TestYM2612_BusReadFromM68K(t *testing.T) {
 	bus := makeTestBus()
 
 	// Read status from M68K: 0xA04000 = port 0
-	val := bus.ReadCycle(0, 1, 0xA04000)
+	val := bus.Read(1, 0xA04000)
 	if val != 0 {
 		t.Errorf("expected status 0, got 0x%02X", val)
 	}

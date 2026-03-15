@@ -59,8 +59,8 @@ func TestSerializeDeserializeRoundTrip(t *testing.T) {
 	}
 
 	// Write recognizable values to main RAM via bus
-	base.bus.WriteCycle(0, m68k.Byte, 0xFF0000, 0xAB)
-	base.bus.WriteCycle(0, m68k.Byte, 0xFF0001, 0xCD)
+	base.bus.Write(m68k.Byte, 0xFF0000, 0xAB)
+	base.bus.Write(m68k.Byte, 0xFF0001, 0xCD)
 
 	// Write to VDP registers (register 0 = 0x14)
 	base.vdp.WriteControl(0, 0x8014)
@@ -72,8 +72,8 @@ func TestSerializeDeserializeRoundTrip(t *testing.T) {
 	}
 
 	// Corrupt emulator state
-	base.bus.WriteCycle(0, m68k.Byte, 0xFF0000, 0xFF)
-	base.bus.WriteCycle(0, m68k.Byte, 0xFF0001, 0xFF)
+	base.bus.Write(m68k.Byte, 0xFF0000, 0xFF)
+	base.bus.Write(m68k.Byte, 0xFF0001, 0xFF)
 	base.vdp.WriteControl(0, 0x8000) // register 0 = 0x00
 
 	// Deserialize
@@ -83,11 +83,11 @@ func TestSerializeDeserializeRoundTrip(t *testing.T) {
 	}
 
 	// Verify RAM was restored
-	val := base.bus.ReadCycle(0, m68k.Byte, 0xFF0000)
+	val := base.bus.Read(m68k.Byte, 0xFF0000)
 	if val != 0xAB {
 		t.Errorf("RAM[0xFF0000]: expected 0xAB, got 0x%02X", val)
 	}
-	val = base.bus.ReadCycle(0, m68k.Byte, 0xFF0001)
+	val = base.bus.Read(m68k.Byte, 0xFF0001)
 	if val != 0xCD {
 		t.Errorf("RAM[0xFF0001]: expected 0xCD, got 0x%02X", val)
 	}

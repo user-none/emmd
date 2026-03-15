@@ -71,7 +71,7 @@ func (m *Z80Memory) Read(addr uint16) uint8 {
 	default:
 		// M68K bank window (0x8000-0xFFFF)
 		m68kAddr := (uint32(m.bankRegister) << 15) | uint32(addr&0x7FFF)
-		val := m.bus.ReadCycle(0, m68k.Byte, m68kAddr)
+		val := m.bus.Read(m68k.Byte, m68kAddr)
 		return uint8(val)
 	}
 }
@@ -106,7 +106,7 @@ func (m *Z80Memory) Write(addr uint16, val uint8) {
 	default:
 		// M68K bank window (0x8000-0xFFFF)
 		m68kAddr := (uint32(m.bankRegister) << 15) | uint32(addr&0x7FFF)
-		m.bus.WriteCycle(0, m68k.Byte, m68kAddr, uint32(val))
+		m.bus.Write(m68k.Byte, m68kAddr, uint32(val))
 	}
 }
 

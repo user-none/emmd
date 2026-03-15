@@ -119,11 +119,6 @@ func (b *GenesisBus) parseSRAMHeader() {
 
 // Read implements m68k.Bus.
 func (b *GenesisBus) Read(s m68k.Size, addr uint32) uint32 {
-	return b.ReadCycle(0, s, addr)
-}
-
-// ReadCycle implements m68k.CycleBus.
-func (b *GenesisBus) ReadCycle(cycle uint64, s m68k.Size, addr uint32) uint32 {
 	addr &= 0xFFFFFF // 24-bit address bus
 
 	switch {
@@ -135,7 +130,7 @@ func (b *GenesisBus) ReadCycle(cycle uint64, s m68k.Size, addr uint32) uint32 {
 	case addr >= 0xA00000 && addr <= 0xA0FFFF:
 		return b.readZ80(s, addr)
 	case addr >= 0xA10000 && addr <= 0xA1001F:
-		return b.readIO(cycle, s, addr)
+		return b.readIO(s, addr)
 	case addr >= 0xA11100 && addr <= 0xA11101:
 		// Z80 bus request: bit 0 of high byte = 0 means bus granted to 68K
 		if b.z80BusRequested {
@@ -168,6 +163,7 @@ func (b *GenesisBus) ReadCycle(cycle uint64, s m68k.Size, addr uint32) uint32 {
 				return uint32(b.vdp.ReadData())
 			}
 		case port <= 0x07: // Control/status port
+			cycle := b.cpu.Cycles()
 			switch s {
 			case m68k.Long:
 				hi := uint32(b.vdp.ReadControl(cycle))
@@ -183,6 +179,7 @@ func (b *GenesisBus) ReadCycle(cycle uint64, s m68k.Size, addr uint32) uint32 {
 				return uint32(b.vdp.ReadControl(cycle))
 			}
 		case port <= 0x0F: // HV counter
+			cycle := b.cpu.Cycles()
 			switch s {
 			case m68k.Byte:
 				val := b.vdp.ReadHVCounterAtCycle(cycle)
@@ -217,11 +214,6 @@ func (b *GenesisBus) ReadCycle(cycle uint64, s m68k.Size, addr uint32) uint32 {
 
 // Write implements m68k.Bus.
 func (b *GenesisBus) Write(s m68k.Size, addr uint32, value uint32) {
-	b.WriteCycle(0, s, addr, value)
-}
-
-// WriteCycle implements m68k.CycleBus.
-func (b *GenesisBus) WriteCycle(cycle uint64, s m68k.Size, addr uint32, value uint32) {
 	// Genesis hardware: TAS memory write-back fails because the VDP bus
 	// arbiter does not support read-modify-write cycles. Suppress the write.
 	if b.isTASWriteBack() {
@@ -239,7 +231,7 @@ func (b *GenesisBus) WriteCycle(cycle uint64, s m68k.Size, addr uint32, value ui
 	case addr >= 0xA00000 && addr <= 0xA0FFFF:
 		b.writeZ80(s, addr, value)
 	case addr >= 0xA10000 && addr <= 0xA1001F:
-		b.writeIO(cycle, s, addr, value)
+		b.writeIO(s, addr, value)
 	case addr >= 0xA11100 && addr <= 0xA11101:
 		// Z80 bus request: bit 0 of high byte (0xA11100) controls request
 		if s == m68k.Byte {
@@ -268,6 +260,7 @@ func (b *GenesisBus) WriteCycle(cycle uint64, s m68k.Size, addr uint32, value ui
 	case addr >= 0xC00000 && addr <= 0xDFFFFF:
 		// VDP is mirrored every 32 bytes in this range
 		port := addr & 0x1F
+		cycle := b.cpu.Cycles()
 		switch {
 		case port <= 0x03: // Data port
 			if s == m68k.Long {
@@ -524,7 +517,8 @@ func (b *GenesisBus) writeZ80(s m68k.Size, addr uint32, value uint32) {
 
 // readIO reads from I/O register space. For word/long reads, the value
 // is built from consecutive byte registers.
-func (b *GenesisBus) readIO(cycle uint64, s m68k.Size, addr uint32) uint32 {
+func (b *GenesisBus) readIO(s m68k.Size, addr uint32) uint32 {
+	cycle := b.cpu.Cycles()
 	switch s {
 	case m68k.Byte:
 		return uint32(b.io.ReadRegister(cycle, addr))
@@ -538,7 +532,8 @@ func (b *GenesisBus) readIO(cycle uint64, s m68k.Size, addr uint32) uint32 {
 }
 
 // writeIO writes to I/O register space.
-func (b *GenesisBus) writeIO(cycle uint64, s m68k.Size, addr uint32, value uint32) {
+func (b *GenesisBus) writeIO(s m68k.Size, addr uint32, value uint32) {
+	cycle := b.cpu.Cycles()
 	switch s {
 	case m68k.Byte:
 		b.io.WriteRegister(cycle, addr, byte(value))
@@ -556,7 +551,7 @@ func (b *GenesisBus) writeIO(cycle uint64, s m68k.Size, addr uint32, value uint3
 // ReadWord reads a 16-bit word from the bus at the given address.
 // Used by the VDP for DMA 68K transfers.
 func (b *GenesisBus) ReadWord(addr uint32) uint16 {
-	val := b.ReadCycle(0, m68k.Word, addr)
+	val := b.Read(m68k.Word, addr)
 	return uint16(val)
 }
 
