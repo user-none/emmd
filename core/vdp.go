@@ -67,7 +67,7 @@ type VDP struct {
 	// Interlace
 	oddField bool // Toggles each frame for interlace modes
 
-	// Region
+	// Video standard
 	isPAL bool
 
 	// Bus reference for DMA 68K transfers

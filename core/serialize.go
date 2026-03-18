@@ -113,7 +113,7 @@ func (e *Emulator) Serialize() ([]byte, error) {
 }
 
 // Deserialize restores emulator state from a save state byte slice.
-// Region is NOT restored - the current region setting is preserved.
+// Video standard is NOT restored - the current setting is preserved.
 func (e *Emulator) Deserialize(data []byte) error {
 	if err := e.VerifyState(data); err != nil {
 		return err

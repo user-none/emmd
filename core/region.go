@@ -1,43 +1,41 @@
 package core
 
-import "github.com/user-none/eblitui/coreif"
-
-// Region is an alias for coreif.Region so internal code compiles unchanged.
-type Region = coreif.Region
+// VideoStandard represents the video standard (NTSC or PAL).
+type VideoStandard int
 
 const (
-	RegionNTSC = coreif.RegionNTSC
-	RegionPAL  = coreif.RegionPAL
+	VideoNTSC VideoStandard = iota
+	VideoPAL
 )
 
-// RegionTiming holds timing constants for a specific region.
+// VideoTiming holds timing constants for a specific video standard.
 // The Genesis has two CPUs with different clock rates.
-type RegionTiming struct {
+type VideoTiming struct {
 	M68KClockHz int // Motorola 68000 clock frequency
 	Z80ClockHz  int // Z80 sound CPU clock frequency
 	Scanlines   int // Total scanlines per frame
 	FPS         int // Frames per second
 }
 
-// NTSC timing: M68K 7.670454 MHz, Z80 3.579545 MHz, 262 scanlines, 60 Hz
-var NTSCTiming = RegionTiming{
+// NTSCTiming: M68K 7.670454 MHz, Z80 3.579545 MHz, 262 scanlines, 60 Hz
+var NTSCTiming = VideoTiming{
 	M68KClockHz: 7670454,
 	Z80ClockHz:  3579545,
 	Scanlines:   262,
 	FPS:         60,
 }
 
-// PAL timing: M68K 7.600489 MHz, Z80 3.546893 MHz, 313 scanlines, 50 Hz
-var PALTiming = RegionTiming{
+// PALTiming: M68K 7.600489 MHz, Z80 3.546893 MHz, 313 scanlines, 50 Hz
+var PALTiming = VideoTiming{
 	M68KClockHz: 7600489,
 	Z80ClockHz:  3546893,
 	Scanlines:   313,
 	FPS:         50,
 }
 
-// GetTimingForRegion returns the appropriate timing constants
-func GetTimingForRegion(r Region) RegionTiming {
-	if r == RegionPAL {
+// GetVideoTiming returns the appropriate timing constants.
+func GetVideoTiming(v VideoStandard) VideoTiming {
+	if v == VideoPAL {
 		return PALTiming
 	}
 	return NTSCTiming
@@ -45,8 +43,8 @@ func GetTimingForRegion(r Region) RegionTiming {
 
 // ConsoleRegion represents the hardware region identity of the console.
 // This determines the version register value ($A10001) which games use
-// for region lockout checks. It is separate from the display timing
-// region (NTSC/PAL).
+// for region lockout checks. It is separate from the video standard
+// (NTSC/PAL).
 type ConsoleRegion int
 
 const (
@@ -123,17 +121,12 @@ func DetectConsoleRegion(rom []byte) ConsoleRegion {
 	return ConsoleUSA
 }
 
-// DetectRegion inspects the ROM header region field at offset $1F0-$1F2
-// and returns the display timing region. ConsoleEurope maps to PAL;
+// DetectVideoStandard inspects the ROM header region field at offset $1F0-$1F2
+// and returns the video standard. ConsoleEurope maps to PAL;
 // ConsoleJapan and ConsoleUSA map to NTSC.
-func DetectRegion(rom []byte) Region {
+func DetectVideoStandard(rom []byte) VideoStandard {
 	if DetectConsoleRegion(rom) == ConsoleEurope {
-		return RegionPAL
+		return VideoPAL
 	}
-	return RegionNTSC
-}
-
-// DefaultRegion returns the default region (NTSC).
-func DefaultRegion() Region {
-	return RegionNTSC
+	return VideoNTSC
 }

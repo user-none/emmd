@@ -93,7 +93,7 @@ func (v *VDP) Serialize(buf []byte) error {
 	buf[offset] = boolByte(v.dmaFillPending)
 	offset++
 
-	// Interlace / Region
+	// Interlace / Video standard
 	buf[offset] = boolByte(v.oddField)
 	offset++
 	buf[offset] = boolByte(v.isPAL)
@@ -179,7 +179,7 @@ func (v *VDP) Deserialize(buf []byte) error {
 	v.dmaFillPending = buf[offset] != 0
 	offset++
 
-	// Interlace / Region
+	// Interlace / Video standard
 	v.oddField = buf[offset] != 0
 	offset++
 	v.isPAL = buf[offset] != 0

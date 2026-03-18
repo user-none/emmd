@@ -30,9 +30,9 @@ type Emulator struct {
 	m68kCyclesPerScanline int
 	z80CyclesPerScanline  int
 
-	// Region timing
-	region    Region
-	timing    RegionTiming
+	// Video standard timing
+	videoStd  VideoStandard
+	timing    VideoTiming
 	scanlines int
 
 	// Z80 V-blank interrupt pending delivery. Set at V-blank start,
@@ -51,10 +51,12 @@ type Emulator struct {
 }
 
 // NewEmulator creates and initializes the shared emulator components.
-func NewEmulator(rom []byte, region Region) (Emulator, error) {
+// The video standard is auto-detected from the ROM header.
+func NewEmulator(rom []byte) (Emulator, error) {
+	videoStd := DetectVideoStandard(rom)
 	consoleRegion := DetectConsoleRegion(rom)
-	vdp := NewVDP(region == RegionPAL)
-	timing := GetTimingForRegion(region)
+	vdp := NewVDP(videoStd == VideoPAL)
+	timing := GetVideoTiming(videoStd)
 
 	ym2612 := NewYM2612(timing.M68KClockHz, sampleRate)
 	psg := sn76489.New(timing.Z80ClockHz, sampleRate, psgBufferSize, sn76489.Sega)
@@ -86,7 +88,7 @@ func NewEmulator(rom []byte, region Region) (Emulator, error) {
 		m68kCyclesPerFrame:    m68kCyclesPerFrame,
 		m68kCyclesPerScanline: m68kCyclesPerScanline,
 		z80CyclesPerScanline:  z80CyclesPerScanline,
-		region:                region,
+		videoStd:              videoStd,
 		timing:                timing,
 		scanlines:             timing.Scanlines,
 		audioBuffer:           make([]int16, 0, 2048),
@@ -251,27 +253,12 @@ func (e *Emulator) GetActiveHeight() int {
 	return e.vdp.RenderHeight()
 }
 
-// GetRegion returns the emulator's region setting.
-func (e *Emulator) GetRegion() Region {
-	return e.region
-}
-
-// GetTiming returns FPS and scanline count for the current region.
+// GetTiming returns FPS and scanline count for the current video standard.
 func (e *Emulator) GetTiming() coreif.Timing {
 	return coreif.Timing{
 		FPS:       e.timing.FPS,
 		Scanlines: e.timing.Scanlines,
 	}
-}
-
-// SetRegion updates the emulator's region configuration.
-func (e *Emulator) SetRegion(region Region) {
-	e.region = region
-	e.timing = GetTimingForRegion(region)
-	e.scanlines = e.timing.Scanlines
-	e.m68kCyclesPerFrame = e.timing.M68KClockHz / e.timing.FPS
-	e.m68kCyclesPerScanline = e.m68kCyclesPerFrame / e.timing.Scanlines
-	e.z80CyclesPerScanline = (e.timing.Z80ClockHz / e.timing.FPS) / e.timing.Scanlines
 }
 
 // HasSRAM returns true if the loaded ROM declares battery-backed SRAM.

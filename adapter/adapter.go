@@ -64,18 +64,11 @@ func (f *Factory) SystemInfo() coreif.SystemInfo {
 	}
 }
 
-// CreateEmulator creates a new emulator instance with the given ROM and region.
-func (f *Factory) CreateEmulator(rom []byte, region coreif.Region) (coreif.Emulator, error) {
-	e, err := core.NewEmulator(rom, region)
+// CreateEmulator creates a new emulator instance with the given ROM.
+func (f *Factory) CreateEmulator(rom []byte) (coreif.Emulator, error) {
+	e, err := core.NewEmulator(rom)
 	if err != nil {
 		return nil, err
 	}
 	return &e, nil
-}
-
-// DetectRegion auto-detects the region from ROM header data.
-// The bool return is false since emmd uses header-based detection,
-// not a ROM database lookup.
-func (f *Factory) DetectRegion(rom []byte) (coreif.Region, bool) {
-	return core.DetectRegion(rom), false
 }

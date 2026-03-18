@@ -12,7 +12,6 @@ import (
 
 func main() {
 	romPath := flag.String("rom", "", "path to ROM file (opens UI if not provided)")
-	regionFlag := flag.String("region", "auto", "region: auto, ntsc, or pal")
 	sixButton := flag.Bool("six-button", true, "enable 6-button controller")
 	flag.Parse()
 
@@ -25,7 +24,7 @@ func main() {
 		} else {
 			options["six_button"] = "false"
 		}
-		if err := standalone.RunDirect(factory, *romPath, *regionFlag, options, nil); err != nil {
+		if err := standalone.RunDirect(factory, *romPath, options, nil); err != nil {
 			log.Fatal(err)
 		}
 		return

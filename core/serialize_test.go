@@ -28,7 +28,7 @@ func createTestEmulator() *Emulator {
 	rom[0x202] = 0x4E
 	rom[0x203] = 0x71
 
-	base, err := NewEmulator(rom, RegionNTSC)
+	base, err := NewEmulator(rom)
 	if err != nil {
 		panic("createTestEmulator: " + err.Error())
 	}
@@ -188,7 +188,7 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	differentROM[0x200] = 0x4E
 	differentROM[0x201] = 0x71
 
-	init2, err := NewEmulator(differentROM, RegionNTSC)
+	init2, err := NewEmulator(differentROM)
 	if err != nil {
 		t.Fatalf("NewEmulator failed: %v", err)
 	}
@@ -213,21 +213,21 @@ func TestVerifyState_TooShort(t *testing.T) {
 }
 
 func TestDeserialize_PreservesRegion(t *testing.T) {
-	// Create ROM for both emulators (same ROM, different regions)
-	rom := make([]byte, 1024)
-	rom[0] = 0x00
-	rom[1] = 0xFF
-	rom[2] = 0x00
-	rom[3] = 0x00
-	rom[4] = 0x00
-	rom[5] = 0x00
-	rom[6] = 0x02
-	rom[7] = 0x00
-	rom[0x200] = 0x4E
-	rom[0x201] = 0x71
+	// Create NTSC ROM (region "U" at $1F0)
+	ntscROM := make([]byte, 1024)
+	ntscROM[0] = 0x00
+	ntscROM[1] = 0xFF
+	ntscROM[2] = 0x00
+	ntscROM[3] = 0x00
+	ntscROM[4] = 0x00
+	ntscROM[5] = 0x00
+	ntscROM[6] = 0x02
+	ntscROM[7] = 0x00
+	ntscROM[0x200] = 0x4E
+	ntscROM[0x201] = 0x71
+	ntscROM[0x1F0] = 'U'
 
-	// Create NTSC emulator and serialize
-	ntscInit, err := NewEmulator(rom, RegionNTSC)
+	ntscInit, err := NewEmulator(ntscROM)
 	if err != nil {
 		t.Fatalf("NewEmulator NTSC failed: %v", err)
 	}
@@ -238,26 +238,18 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
-	// Create PAL emulator with same ROM
-	palInit, err := NewEmulator(rom, RegionPAL)
-	if err != nil {
-		t.Fatalf("NewEmulator PAL failed: %v", err)
-	}
-	basePAL := &palInit
-
-	if basePAL.GetRegion() != RegionPAL {
-		t.Fatal("Initial region should be PAL")
+	// Deserialize into same emulator - region should be preserved
+	if baseNTSC.videoStd != VideoNTSC {
+		t.Fatal("Initial region should be NTSC")
 	}
 
-	// Load NTSC state into PAL emulator
-	err = basePAL.Deserialize(state)
+	err = baseNTSC.Deserialize(state)
 	if err != nil {
 		t.Fatalf("Deserialize failed: %v", err)
 	}
 
-	// Region should still be PAL
-	if basePAL.GetRegion() != RegionPAL {
-		t.Errorf("Region should be preserved as PAL, got %v", basePAL.GetRegion())
+	if baseNTSC.videoStd != VideoNTSC {
+		t.Errorf("Video standard should be preserved as NTSC, got %d", baseNTSC.videoStd)
 	}
 }
 

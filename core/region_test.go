@@ -13,46 +13,46 @@ func makeROM(region string) []byte {
 	return rom
 }
 
-func TestDetectRegion_JUE(t *testing.T) {
-	if got := DetectRegion(makeROM("JUE")); got != RegionNTSC {
+func TestDetectVideoStandard_JUE(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("JUE")); got != VideoNTSC {
 		t.Errorf("JUE: got %v, want NTSC", got)
 	}
 }
 
-func TestDetectRegion_U(t *testing.T) {
-	if got := DetectRegion(makeROM("U")); got != RegionNTSC {
+func TestDetectVideoStandard_U(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("U")); got != VideoNTSC {
 		t.Errorf("U: got %v, want NTSC", got)
 	}
 }
 
-func TestDetectRegion_E(t *testing.T) {
-	if got := DetectRegion(makeROM("E")); got != RegionPAL {
+func TestDetectVideoStandard_E(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("E")); got != VideoPAL {
 		t.Errorf("E: got %v, want PAL", got)
 	}
 }
 
-func TestDetectRegion_J(t *testing.T) {
-	if got := DetectRegion(makeROM("J")); got != RegionNTSC {
+func TestDetectVideoStandard_J(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("J")); got != VideoNTSC {
 		t.Errorf("J: got %v, want NTSC", got)
 	}
 }
 
-func TestDetectRegion_UE(t *testing.T) {
-	if got := DetectRegion(makeROM("UE")); got != RegionNTSC {
+func TestDetectVideoStandard_UE(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("UE")); got != VideoNTSC {
 		t.Errorf("UE: got %v, want NTSC (prefer NTSC for multi-region)", got)
 	}
 }
 
-func TestDetectRegion_Empty(t *testing.T) {
+func TestDetectVideoStandard_Empty(t *testing.T) {
 	// Region field filled with spaces (no region characters)
-	if got := DetectRegion(makeROM("")); got != RegionNTSC {
+	if got := DetectVideoStandard(makeROM("")); got != VideoNTSC {
 		t.Errorf("empty: got %v, want NTSC (default)", got)
 	}
 }
 
-func TestDetectRegion_ROMTooShort(t *testing.T) {
+func TestDetectVideoStandard_ROMTooShort(t *testing.T) {
 	rom := make([]byte, 0x100)
-	if got := DetectRegion(rom); got != RegionNTSC {
+	if got := DetectVideoStandard(rom); got != VideoNTSC {
 		t.Errorf("short ROM: got %v, want NTSC (default)", got)
 	}
 }
@@ -158,22 +158,22 @@ func TestDetectConsoleRegion_HexF_All(t *testing.T) {
 	}
 }
 
-// --- Hex digit format DetectRegion tests ---
+// --- Hex digit format DetectVideoStandard tests ---
 
-func TestDetectRegion_Hex8_PAL(t *testing.T) {
-	if got := DetectRegion(makeROM("8")); got != RegionPAL {
+func TestDetectVideoStandard_Hex8_PAL(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("8")); got != VideoPAL {
 		t.Errorf("hex 8: got %v, want PAL", got)
 	}
 }
 
-func TestDetectRegion_Hex9_NTSC(t *testing.T) {
-	if got := DetectRegion(makeROM("9")); got != RegionNTSC {
+func TestDetectVideoStandard_Hex9_NTSC(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("9")); got != VideoNTSC {
 		t.Errorf("hex 9: got %v, want NTSC", got)
 	}
 }
 
-func TestDetectRegion_HexF_NTSC(t *testing.T) {
-	if got := DetectRegion(makeROM("F")); got != RegionNTSC {
+func TestDetectVideoStandard_HexF_NTSC(t *testing.T) {
+	if got := DetectVideoStandard(makeROM("F")); got != VideoNTSC {
 		t.Errorf("hex F: got %v, want NTSC", got)
 	}
 }
