@@ -3,10 +3,10 @@ module github.com/user-none/emmd
 go 1.25.7
 
 require (
-	github.com/user-none/eblitui-ios v0.3.0
-	github.com/user-none/eblitui/coreif v0.4.0
-	github.com/user-none/eblitui/libretro v0.3.0
-	github.com/user-none/eblitui/standalone v0.6.0
+	github.com/user-none/eblitui-ios v0.4.0
+	github.com/user-none/eblitui/coreif v0.5.0
+	github.com/user-none/eblitui/desktop v0.1.0
+	github.com/user-none/eblitui/libretro v0.4.0
 	github.com/user-none/go-chip-m68k v0.0.0-20260316002938-35a669db4103
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
 	github.com/user-none/go-chip-z80 v0.0.0-20260315161243-6c949bf925bb

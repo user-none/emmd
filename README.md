@@ -5,7 +5,7 @@ A Sega Genesis (Mega Drive) emulator written in Go targeting Model 1 hardware.
 ## Status
 
 The focus is on core emulation accuracy for officially licensed and released
-games. The standalone UI provides a full game library with ROM scanning,
+games. The desktop UI provides a full game library with ROM scanning,
 artwork, metadata, save state management, rewind, fast-forward, shader effects,
 RetroAchievements integration, and configurable settings.
 
@@ -38,7 +38,7 @@ characteristics most associated with the Genesis sound.
 - Battery-backed SRAM save/load
 - Save state serialization and deserialization
 - NTSC and PAL region support with automatic detection from ROM header
-- Standalone desktop application with library, settings, and shader effects
+- Desktop application with library, settings, and shader effects
 - LibRetro core for use with LibRetro-compatible frontends
 - macOS application bundle with icon generation
 
@@ -46,10 +46,10 @@ characteristics most associated with the Genesis sound.
 
 Requires Go 1.25+.
 
-### Standalone Application
+### Desktop Application
 
 ```
-make standalone
+make desktop
 ```
 
 Produces `build/emmd`.
@@ -77,7 +77,7 @@ Creates `build/emmd.app` with proper icon and code signing.
 make all
 ```
 
-Builds both standalone and libretro targets.
+Builds both desktop and libretro targets.
 
 ## Running
 
@@ -254,7 +254,7 @@ Multi-region ROMs default to NTSC. Manual override is available via the
 
 ```
 cmd/
-  standalone/          Standalone desktop entry point (Ebiten UI)
+  desktop/             Desktop entry point (Ebiten UI)
   libretro/            LibRetro core entry point (shared library)
 adapter/
   adapter.go           CoreFactory: system info, emulator creation, region detection
@@ -347,15 +347,15 @@ This emulator targets officially licensed and released Genesis games.
 ## Dependencies
 
 - [ebiten](https://github.com/hajimehoshi/ebiten) - rendering and input
-  (standalone)
-- [oto](https://github.com/ebitengine/oto) - audio output (standalone)
+  (desktop)
+- [oto](https://github.com/ebitengine/oto) - audio output (desktop)
 - [go-chip-m68k](https://github.com/user-none/go-chip-m68k) - Motorola
   68000 CPU
 - [go-chip-z80](https://github.com/user-none/go-chip-z80) - Zilog Z80 CPU
 - [go-chip-sn76489](https://github.com/user-none/go-chip-sn76489) -
   SN76489 PSG
 - [eblitui](https://github.com/user-none/eblitui) - shared emulator UI
-  framework (standalone, libretro)
+  framework (desktop, libretro)
 
 ## License
 

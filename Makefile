@@ -1,4 +1,4 @@
-.PHONY: all clean libretro standalone macos icons iconset
+.PHONY: all clean libretro desktop macos icons iconset
 
 # Output directories
 BUILD_DIR := build
@@ -12,14 +12,14 @@ ICON_ICNS := $(BUILD_DIR)/icon.icns
 IOS_ICON := ios/Sources/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 
 # Build all targets
-all: libretro standalone
+all: libretro desktop
 
-# Build the standalone binary
-standalone:
-	go build -o $(BUILD_DIR)/emmd ./cmd/standalone/
+# Build the desktop binary
+desktop:
+	go build -o $(BUILD_DIR)/emmd ./cmd/desktop/
 
 # Build macOS .app bundle
-macos: standalone icons
+macos: desktop icons
 	@echo "Creating $(APP_NAME).app bundle..."
 	@mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
 	@mkdir -p "$(APP_BUNDLE)/Contents/Resources"
