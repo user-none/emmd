@@ -13,7 +13,7 @@ import (
 
 // Save state format constants
 const (
-	stateVersion    = 1
+	stateVersion    = 2
 	stateMagic      = "eMMDSState\x00\x00"
 	stateHeaderSize = 22 // magic(12) + version(2) + romCRC(4) + dataCRC(4)
 )
@@ -23,7 +23,8 @@ const (
 	maxSRAMSize           = 0x8000                           // 32KB max SRAM per Sega specs
 	busSerializeFixedSize = mainRAMSize + z80RAMSize + 4 + 5 // ram + z80RAM + sramLen + flags
 	z80MemSerializeSize   = 2                                // bankRegister
-	emulatorSerializeSize = 17                               // z80IntPending(1) + filterPrevL(8) + filterPrevR(8)
+	// z80IntPending(1) + filterPrevL(8) + filterPrevR(8) + m68kDisp.accum(4) + z80Disp.accum(4)
+	emulatorSerializeSize = 25
 )
 
 // boolByte converts a bool to a uint8 (0 or 1).
@@ -291,6 +292,12 @@ func (e *Emulator) serializeBase(data []byte, offset int) int {
 	binary.LittleEndian.PutUint64(data[offset:], math.Float64bits(e.filterPrevR))
 	offset += 8
 
+	binary.LittleEndian.PutUint32(data[offset:], uint32(e.m68kDisp.accum))
+	offset += 4
+
+	binary.LittleEndian.PutUint32(data[offset:], uint32(e.z80Disp.accum))
+	offset += 4
+
 	return offset
 }
 
@@ -304,6 +311,12 @@ func (e *Emulator) deserializeBase(data []byte, offset int) int {
 
 	e.filterPrevR = math.Float64frombits(binary.LittleEndian.Uint64(data[offset:]))
 	offset += 8
+
+	e.m68kDisp.accum = int(binary.LittleEndian.Uint32(data[offset:]))
+	offset += 4
+
+	e.z80Disp.accum = int(binary.LittleEndian.Uint32(data[offset:]))
+	offset += 4
 
 	return offset
 }

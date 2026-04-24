@@ -26,9 +26,11 @@ type Emulator struct {
 	ym2612 *YM2612
 	io     *IO
 
-	m68kCyclesPerFrame    int
-	m68kCyclesPerScanline int
-	z80CyclesPerScanline  int
+	// Per-scanline cycle dispensers. These distribute the exact clock rate
+	// across scanlines using a Bresenham-style accumulator so that the sum
+	// over (fps * scanlines) calls equals exactly clockHz with zero drift.
+	m68kDisp cycleDispenser
+	z80Disp  cycleDispenser
 
 	// Video standard timing
 	videoStd  VideoStandard
@@ -72,26 +74,21 @@ func NewEmulator(rom []byte) (Emulator, error) {
 	z80Mem := NewZ80Memory(bus)
 	z80CPU := z80.New(z80Mem)
 
-	m68kCyclesPerFrame := timing.M68KClockHz / timing.FPS
-	m68kCyclesPerScanline := m68kCyclesPerFrame / timing.Scanlines
-	z80CyclesPerScanline := (timing.Z80ClockHz / timing.FPS) / timing.Scanlines
-
 	return Emulator{
-		m68k:                  cpu,
-		z80:                   z80CPU,
-		z80Mem:                z80Mem,
-		bus:                   bus,
-		vdp:                   vdp,
-		psg:                   psg,
-		ym2612:                ym2612,
-		io:                    io,
-		m68kCyclesPerFrame:    m68kCyclesPerFrame,
-		m68kCyclesPerScanline: m68kCyclesPerScanline,
-		z80CyclesPerScanline:  z80CyclesPerScanline,
-		videoStd:              videoStd,
-		timing:                timing,
-		scanlines:             timing.Scanlines,
-		audioBuffer:           make([]int16, 0, 2048),
+		m68k:        cpu,
+		z80:         z80CPU,
+		z80Mem:      z80Mem,
+		bus:         bus,
+		vdp:         vdp,
+		psg:         psg,
+		ym2612:      ym2612,
+		io:          io,
+		m68kDisp:    newCycleDispenser(timing.M68KClockHz, timing.FPS, timing.Scanlines),
+		z80Disp:     newCycleDispenser(timing.Z80ClockHz, timing.FPS, timing.Scanlines),
+		videoStd:    videoStd,
+		timing:      timing,
+		scanlines:   timing.Scanlines,
+		audioBuffer: make([]int16, 0, 2048),
 	}, nil
 }
 
@@ -125,11 +122,15 @@ func (e *Emulator) RunFrame() {
 			e.z80.INT(true, 0xFF)
 		}
 
+		// Dispense this scanline's exact cycle counts for each clock domain.
+		m68kCycles := e.m68kDisp.Next()
+		z80Cycles := e.z80Disp.Next()
+
 		// Initialize VDP scanline cycle tracking before M68K runs
-		e.vdp.BeginScanline(e.m68k.Cycles(), e.m68kCyclesPerScanline)
+		e.vdp.BeginScanline(e.m68k.Cycles(), m68kCycles)
 
 		// Run M68K for this scanline using budget-based execution
-		budget := e.m68kCyclesPerScanline
+		budget := m68kCycles
 		for budget > 0 {
 			consumed := e.m68k.StepCycles(budget)
 			if consumed == 0 {
@@ -146,10 +147,10 @@ func (e *Emulator) RunFrame() {
 				e.m68k.RequestInterrupt(level, nil)
 			}
 		}
-		scanlineCycles := e.m68kCyclesPerScanline - budget
+		scanlineCycles := m68kCycles - budget
 
 		// Update H counter based on where we ended up in the scanline
-		e.vdp.UpdateHCounter(scanlineCycles, e.m68kCyclesPerScanline)
+		e.vdp.UpdateHCounter(scanlineCycles, m68kCycles)
 
 		// Enter HBlank at end of active display portion
 		e.vdp.SetHBlank(true)
@@ -165,7 +166,7 @@ func (e *Emulator) RunFrame() {
 		// This is critical: the 68K often deasserts Z80 reset before releasing
 		// the bus, so the Z80 must not start executing until the bus is free.
 		if e.bus.z80Reset && !e.bus.z80BusRequested {
-			budget := e.z80CyclesPerScanline
+			budget := z80Cycles
 			for budget > 0 {
 				// While INT is pending, check each step for acknowledgment
 				// by watching for IFF1 to transition from true to false.
@@ -193,8 +194,8 @@ func (e *Emulator) RunFrame() {
 		}
 
 		// Generate audio for this scanline
-		e.ym2612.GenerateSamples(e.m68kCyclesPerScanline)
-		e.psg.Run(e.z80CyclesPerScanline)
+		e.ym2612.GenerateSamples(m68kCycles)
+		e.psg.Run(z80Cycles)
 	}
 
 	e.mixAudio()
