@@ -64,11 +64,9 @@ func (f *Factory) SystemInfo() coreif.SystemInfo {
 	}
 }
 
-// CreateEmulator creates a new emulator instance with the given ROM.
-func (f *Factory) CreateEmulator(rom []byte) (coreif.Emulator, error) {
-	e, err := core.NewEmulator(rom)
-	if err != nil {
-		return nil, err
-	}
-	return &e, nil
+// CreateEmulator creates a new emulator instance. Cartridge content is
+// provided afterwards via Emulator.SetRom.
+func (f *Factory) CreateEmulator() coreif.Emulator {
+	e := core.NewEmulator()
+	return &e
 }

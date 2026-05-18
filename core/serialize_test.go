@@ -28,10 +28,8 @@ func createTestEmulator() *Emulator {
 	rom[0x202] = 0x4E
 	rom[0x203] = 0x71
 
-	base, err := NewEmulator(rom)
-	if err != nil {
-		panic("createTestEmulator: " + err.Error())
-	}
+	base := NewEmulator()
+	base.SetRom(rom)
 	return &base
 }
 
@@ -188,10 +186,8 @@ func TestVerifyState_WrongROM(t *testing.T) {
 	differentROM[0x200] = 0x4E
 	differentROM[0x201] = 0x71
 
-	init2, err := NewEmulator(differentROM)
-	if err != nil {
-		t.Fatalf("NewEmulator failed: %v", err)
-	}
+	init2 := NewEmulator()
+	init2.SetRom(differentROM)
 	base2 := &init2
 
 	err = base2.VerifyState(state)
@@ -227,10 +223,8 @@ func TestDeserialize_PreservesRegion(t *testing.T) {
 	ntscROM[0x201] = 0x71
 	ntscROM[0x1F0] = 'U'
 
-	ntscInit, err := NewEmulator(ntscROM)
-	if err != nil {
-		t.Fatalf("NewEmulator NTSC failed: %v", err)
-	}
+	ntscInit := NewEmulator()
+	ntscInit.SetRom(ntscROM)
 	baseNTSC := &ntscInit
 
 	state, err := baseNTSC.Serialize()

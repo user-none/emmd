@@ -3,10 +3,10 @@ module github.com/user-none/emmd
 go 1.25.7
 
 require (
-	github.com/user-none/eblitui-ios v0.5.0
-	github.com/user-none/eblitui/coreif v0.5.0
-	github.com/user-none/eblitui/desktop v0.2.0
-	github.com/user-none/eblitui/libretro v0.4.0
+	github.com/user-none/eblitui-ios v0.6.0
+	github.com/user-none/eblitui/coreif v0.6.0
+	github.com/user-none/eblitui/desktop v0.3.0
+	github.com/user-none/eblitui/libretro v0.5.0
 	github.com/user-none/go-chip-m68k v0.0.0-20260316002938-35a669db4103
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
 	github.com/user-none/go-chip-z80 v0.0.0-20260315161243-6c949bf925bb
@@ -38,8 +38,8 @@ require (
 	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	github.com/user-none/eblitui/rdb v0.1.0 // indirect
-	github.com/user-none/eblitui/romloader v0.2.0 // indirect
+	github.com/user-none/eblitui/rdb v0.2.0 // indirect
+	github.com/user-none/eblitui/romloader v0.3.0 // indirect
 	github.com/user-none/go-rcheevos v0.0.0 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
 	golang.design/x/clipboard v0.7.1 // indirect

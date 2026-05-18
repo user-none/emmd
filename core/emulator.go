@@ -52,9 +52,18 @@ type Emulator struct {
 	filterPrevR float64
 }
 
-// NewEmulator creates and initializes the shared emulator components.
-// The video standard is auto-detected from the ROM header.
-func NewEmulator(rom []byte) (Emulator, error) {
+// NewEmulator creates an empty emulator. Cartridge content is provided
+// afterwards via SetRom before Start; the video standard is then
+// auto-detected from the ROM header.
+func NewEmulator() Emulator {
+	return Emulator{}
+}
+
+// SetRom provides cartridge ROM data and builds the shared emulator
+// components from it. Must be called after NewEmulator and before
+// Start; the video standard and console region are auto-detected from
+// the ROM header.
+func (e *Emulator) SetRom(rom []byte) {
 	videoStd := DetectVideoStandard(rom)
 	consoleRegion := DetectConsoleRegion(rom)
 	vdp := NewVDP(videoStd == VideoPAL)
@@ -74,23 +83,24 @@ func NewEmulator(rom []byte) (Emulator, error) {
 	z80Mem := NewZ80Memory(bus)
 	z80CPU := z80.New(z80Mem)
 
-	return Emulator{
-		m68k:        cpu,
-		z80:         z80CPU,
-		z80Mem:      z80Mem,
-		bus:         bus,
-		vdp:         vdp,
-		psg:         psg,
-		ym2612:      ym2612,
-		io:          io,
-		m68kDisp:    newCycleDispenser(timing.M68KClockHz, timing.FPS, timing.Scanlines),
-		z80Disp:     newCycleDispenser(timing.Z80ClockHz, timing.FPS, timing.Scanlines),
-		videoStd:    videoStd,
-		timing:      timing,
-		scanlines:   timing.Scanlines,
-		audioBuffer: make([]int16, 0, 2048),
-	}, nil
+	e.m68k = cpu
+	e.z80 = z80CPU
+	e.z80Mem = z80Mem
+	e.bus = bus
+	e.vdp = vdp
+	e.psg = psg
+	e.ym2612 = ym2612
+	e.io = io
+	e.m68kDisp = newCycleDispenser(timing.M68KClockHz, timing.FPS, timing.Scanlines)
+	e.z80Disp = newCycleDispenser(timing.Z80ClockHz, timing.FPS, timing.Scanlines)
+	e.videoStd = videoStd
+	e.timing = timing
+	e.scanlines = timing.Scanlines
+	e.audioBuffer = make([]int16, 0, 2048)
 }
+
+// SetDisc is a no-op; the Mega Drive is cartridge-based.
+func (e *Emulator) SetDisc(disc coreif.DiscReader) {}
 
 // RunFrame executes one frame of emulation.
 func (e *Emulator) RunFrame() {
@@ -323,7 +333,7 @@ func (e *Emulator) SetOption(key string, value string) {
 }
 
 // SetBIOS is a no-op; the Mega Drive does not use an external BIOS.
-func (e *Emulator) SetBIOS(key string, data []byte) {}
+func (e *Emulator) SetBIOS(key string, data []byte) error { return nil }
 
 // ReadMemory reads from a flat address into buf and returns the number
 // of bytes read.
