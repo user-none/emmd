@@ -1,4 +1,4 @@
-.PHONY: all clean libretro desktop macos icons iconset
+.PHONY: all clean desktop macos icons iconset
 
 # Output directories
 BUILD_DIR := build
@@ -12,7 +12,7 @@ ICON_ICNS := $(BUILD_DIR)/icon.icns
 IOS_ICON := ios/Sources/Resources/Assets.xcassets/AppIcon.appiconset/icon.png
 
 # Build all targets
-all: libretro desktop
+all: desktop
 
 # Build the desktop binary
 desktop:
@@ -30,10 +30,6 @@ macos: desktop icons
 	@echo "Signing app bundle..."
 	@codesign --force --sign - --deep "$(APP_BUNDLE)"
 	@echo "Created $(APP_BUNDLE)"
-
-# Build libretro core
-libretro:
-	go build -buildmode=c-shared -o $(BUILD_DIR)/emmd_libretro.dylib ./cmd/libretro/
 
 # Generate icons from master PNG
 icons: $(ICON_ICNS) $(IOS_ICON)

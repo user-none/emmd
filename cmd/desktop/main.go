@@ -1,4 +1,4 @@
-//go:build !libretro && !ios
+//go:build !ios
 
 package main
 

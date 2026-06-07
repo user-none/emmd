@@ -54,15 +54,6 @@ make desktop
 
 Produces `build/emmd`.
 
-### LibRetro Core
-
-```
-make libretro
-```
-
-Produces `build/emmd_libretro.dylib` for use with LibRetro-compatible
-frontends.
-
 ### macOS Application Bundle
 
 ```
@@ -77,7 +68,7 @@ Creates `build/emmd.app` with proper icon and code signing.
 make all
 ```
 
-Builds both desktop and libretro targets.
+Builds desktop target
 
 ## Running
 
@@ -255,7 +246,6 @@ Multi-region ROMs default to NTSC. Manual override is available via the
 ```
 cmd/
   desktop/             Desktop entry point (Ebiten UI)
-  libretro/            LibRetro core entry point (shared library)
 adapter/
   adapter.go           CoreFactory: system info, emulator creation, region detection
 emu/                   Core emulator (platform-independent)
@@ -355,7 +345,7 @@ This emulator targets officially licensed and released Genesis games.
 - [go-chip-sn76489](https://github.com/user-none/go-chip-sn76489) -
   SN76489 PSG
 - [eblitui](https://github.com/user-none/eblitui) - shared emulator UI
-  framework (desktop, libretro)
+  framework (desktop)
 
 ## License
 
