@@ -5,8 +5,8 @@ go 1.25.7
 require (
 	github.com/user-none/eblitui-ios v0.6.1
 	github.com/user-none/eblitui/coreif v0.7.0
-	github.com/user-none/eblitui/desktop v0.4.4
-	github.com/user-none/go-chip-m68k v0.0.0-20260316002938-35a669db4103
+	github.com/user-none/eblitui/desktop v0.4.7
+	github.com/user-none/go-chip-m68k v0.1.1
 	github.com/user-none/go-chip-sn76489 v0.0.0-20260216111134-1da9b666b080
 	github.com/user-none/go-chip-z80 v0.0.0-20260315161243-6c949bf925bb
 )
@@ -22,10 +22,10 @@ require (
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/oto/v3 v3.4.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
-	github.com/ebitenui/ebitenui v0.7.2 // indirect
+	github.com/ebitenui/ebitenui v0.7.3 // indirect
 	github.com/frustra/bbcode v0.0.0-20201127003707-6ef347fbe1c8 // indirect
 	github.com/go-text/typesetting v0.3.3 // indirect
-	github.com/hajimehoshi/ebiten/v2 v2.9.8 // indirect
+	github.com/hajimehoshi/ebiten/v2 v2.9.9 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jezek/xgb v1.3.0 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
